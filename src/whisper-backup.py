@@ -6,6 +6,9 @@ import fcntl
 import gzip
 import hashlib
 import datetime
+import time
+import tempfile
+import shutil
 
 from optparse import make_option
 from fnmatch import fnmatch
@@ -31,6 +34,14 @@ def listMetrics(storage_dir, glob):
                     yield m_name, os.path.join(root, filename)
 
 
+def toPath(prefix, metric):
+    """Translate the metric key name in metric to its OS path location
+       rooted under prefix."""
+
+    m = metric.replace(".", "/") + ".wsp"
+    return os.path.join(prefix, m)
+
+
 def storageBackend(script):
     if len(script.args) <= 1:
         logger.error("Storage backend must be specified, either 'swift' or 's3'")
@@ -53,7 +64,7 @@ def storageBackend(script):
 
 
 def utc():
-    return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
 
 def backup(script):
@@ -116,8 +127,114 @@ def backup(script):
                 logger.warning("Exception during delete: %s" % str(e))
 
 
+def findBackup(script, objs, date):
+    """Return the UTC ISO 8601 timestamp embedded in the given list of file
+       objs that is the last timestamp before date.  Where data is a
+       ISO 8601 string."""
+
+    timestamps = []
+    for i in objs:
+        i = i[i.find("/")+1:]
+        i = i[:i.find(".")]
+        # XXX: Should probably actually parse the tz here
+        timestamps.append(datetime.datetime.strptime(i, "%Y-%m-%dT%H:%M:%S+00:00"))
+
+    refDate = datetime.datetime.strptime(script.options.date, "%Y-%m-%dT%H:%M:%S+00:00")
+    timestamps.sort()
+    timestamps.reverse()
+    for i in timestamps:
+        if refDate > i:
+            return i.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+    logger.warning("XXX: I shouldn't have found myself here")
+    return None
+
+
+def heal(script, metric, data):
+    """Heal the metric in metric with the WSP data stored as a string
+       in data."""
+
+    path = toPath(script.options.prefix, metric)
+    error = False
+
+    # Make a tmp file
+    fd, filename = tempfile.mkstemp(prefix="whisper-backup")
+    fd = os.fdopen(fd, "wb")
+    fd.write(data)
+    fd.close()
+
+    # Figure out what to do
+    if os.path.exists(path):
+        logger.debug("Healing existing whisper file: %s" % path)
+        try:
+            fill_archives(filename, path, time.time())
+        except Exception as e:
+            logger.warning("Exception during heal of %s will overwrite." % path)
+            logger.warning(str(e))
+            error = True
+
+    # Last ditch effort, we just copy the file in place
+    if error or not os.path.exists(path):
+        try:
+            os.makedirs(os.path.dirname(path))
+        except os.error:
+            # Directory exists
+            pass
+
+        shutil.copyfile(filename, path)
+
+    os.unlink(filename)
+
+
 def restore(script):
-    pass
+    metrics = {}  # What metrics do we restore? O(1) lookups please
+
+    # Build a list of metrics to restore from our object store and globbing
+    for i in script.store.list():
+        # The SHA1 is my canary/flag, we look for it
+        if i.endswith(".sha1"):
+            # The metric name is everything before the first /
+            m = i[:i.find("/")]
+            if fnmatch(m, script.options.metrics):
+                if m not in metrics:
+                    metrics[m] = None
+
+    # For each metric, find the date we want
+    for i in metrics.keys():
+        objs = script.store.list("%s/" % i)
+        d = findBackup(script, objs, script.options.date)
+        logger.info("Restoring %s from timestamp %s" % (i, d))
+
+        blobgz  = script.store.get("%s/%s.wsp.gz" % (i, d))
+        blobSHA = script.store.get("%s/%s.sha1" % (i, d))
+
+        if blobgz is None:
+            logger.warning("Missing file in object store: %s/%s.wsp.gz" % (i, d))
+            logger.warning("Skipping...")
+            continue
+
+        # Decompress
+        blobgz = StringIO(blobgz)
+        fd = gzip.GzipFile(fileobj=blobgz, mode="rb")
+        blob = fd.read()
+        fd.close()
+
+        # Verify
+        if blobSHA is None:
+            logger.warning("Missing SHA1 checksum file...no verification")
+        else:
+            if hashlib.sha1(blob).hexdigest() != blobSHA:
+                logger.warning("Backup does NOT verify, skipping metric %s" \
+                               % i)
+                continue
+
+        heal(script, i, blob)
+
+        # Clean up
+        del blob
+        blobgz.close()
+
+
 
 def listbackups(script):
     c = 0
@@ -155,6 +272,9 @@ def main():
     options.append(make_option("-m", "--metrics", type="string",
         default="*",
         help="Glob pattern of metric names to backup or restore, default %default"))
+    options.append(make_option("-c", "--date", type="string",
+        default=utc(),
+        help="String in ISO-8601 date format. The last backup before this date will be used during the restore.  Default is now or %s." % utc()))
 
     script = CronScript(usage=usage, options=options)
     script.store = storageBackend(script)
