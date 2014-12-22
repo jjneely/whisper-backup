@@ -1,3 +1,20 @@
+#!/usr/bin/env python
+#
+#   Copyright 2014 42 Lines, Inc.
+#   Original Author: Jack Neely <jjneely@42lines.net>
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
 import sys
 import os
 import os.path
@@ -95,6 +112,7 @@ def backup(script):
             if script.store.get(i) == blobSHA:
                 logger.info("Metric DB %s is unchanged from last backup, " \
                             "skipping." % k)
+                # We purposely do not check retention in this case
                 continue
 
         # We're going to backup this file, compress it as a normal .gz
@@ -176,6 +194,7 @@ def heal(script, metric, data):
 
     # Last ditch effort, we just copy the file in place
     if error or not os.path.exists(path):
+        logger.debug("Copying restored DB file into place")
         try:
             os.makedirs(os.path.dirname(path))
         except os.error:
@@ -278,13 +297,25 @@ def main():
         help="String in ISO-8601 date format. The last backup before this date will be used during the restore.  Default is now or %s." % utc()))
 
     script = CronScript(usage=usage, options=options)
-    script.store = storageBackend(script)
+
+    if len(script.args) == 0:
+        logger.info("whisper-backup.py - A Python script for backing up whisper " \
+                    "database trees as used with Graphite")
+        logger.info("Copyright 2014 42 Lines, Inc.")
+        logger.info("Original Author: Jack Neely <jjneely@42lines.net>")
+        logger.info("See the README for help or use the --help option.")
+        sys.exit(1)
 
     if script.args[0] == "backup":
-        backup(script)
+        with script:
+            script.store = storageBackend(script)
+            backup(script)
     elif script.args[0] == "restore":
-        restore(script)
+        with script:
+            script.store = storageBackend(script)
+            restore(script)
     elif script.args[0] == "list":
+        script.store = storageBackend(script)
         listbackups(script)
     else:
         logger.error("Command %s unknown.  Must be one of backup, restore, " \
