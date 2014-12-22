@@ -134,16 +134,18 @@ def backup(script):
         del blob
 
         # Handle our retention polity, we keep at most X backups
-        if len(knownBackups) + 1 > script.options.retention:
+        while len(knownBackups) + 1 > script.options.retention:
             i = knownBackups[0] # The oldest (and not current) backup
             i.replace(".sha1", "")
             logger.info("Removing old backup: %s" % i+".wsp.gz")
             try:
-                script.store.delete("%s.sha1")
-                script.store.delete("%s.wsp.gz")
-            except:
+                script.store.delete("%s.sha1" % i)
+                script.store.delete("%s.wsp.gz" % i)
+            except Exception as e:
                 # On an error here we want to leave files alone
                 logger.warning("Exception during delete: %s" % str(e))
+
+            del knownBackups[0]
 
 
 def findBackup(script, objs, date):
