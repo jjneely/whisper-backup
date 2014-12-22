@@ -92,7 +92,7 @@ def backup(script):
         # exclusive locks are cleared when the file handle is closed.  This
         # is the same practice that the whisper code uses.
         logger.debug("Locking file...")
-        with open(p, "r+b") as fh:
+        with open(p, "rb") as fh:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # May block
             blob = fh.read()
             timestamp = utc()
