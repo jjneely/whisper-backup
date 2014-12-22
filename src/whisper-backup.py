@@ -56,10 +56,11 @@ def storageBackend(script):
         else:
             region = "us-east-1"
         return s3.S3(script.options.bucket, region)
-    #if script.args[1].lower() == "swift":
-    #    return None
+    if script.args[1].lower() == "swift":
+        import swift
+        return swift.Swift(script.options.bucket)
 
-    logger.error("Invalid storage backend, must be 'swift' or 's3'")
+    logger.error("Invalid storage backend, must be 'swift', 's3', or 'noop'")
     sys.exit(1)
 
 
