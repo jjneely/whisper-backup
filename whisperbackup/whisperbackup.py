@@ -34,7 +34,9 @@ from StringIO import StringIO
 from carbonate.fill import fill_archives
 from pycronscript import CronScript
 
-logger = logging.getLogger(__name__)
+import __main__
+
+logger = logging.getLogger(__main__.__name__)
 
 def listMetrics(storage_dir, glob):
     storage_dir = storage_dir.rstrip(os.sep)
