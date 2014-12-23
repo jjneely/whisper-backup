@@ -135,8 +135,8 @@ def backup(script):
 
         # Handle our retention polity, we keep at most X backups
         while len(knownBackups) + 1 > script.options.retention:
-            i = knownBackups[0] # The oldest (and not current) backup
-            i.replace(".sha1", "")
+             # The oldest (and not current) backup
+            i = knownBackups[0].replace(".sha1", "")
             logger.info("Removing old backup: %s" % i+".wsp.gz")
             try:
                 script.store.delete("%s.sha1" % i)
