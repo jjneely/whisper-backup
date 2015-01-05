@@ -58,5 +58,4 @@ Assumptions
 To Do
 -----
 
-* Multi-process or multi-thread awareness.  Make backups and restores run
-  faster.
+* We use multiprocess.Pool for backups, but restores are still single process

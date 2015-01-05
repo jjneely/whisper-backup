@@ -27,6 +27,7 @@ import time
 import tempfile
 import shutil
 
+from multiprocessing import Pool
 from optparse import make_option
 from fnmatch import fnmatch
 from StringIO import StringIO
@@ -88,75 +89,111 @@ def utc():
 
 
 def backup(script):
-    for k, p in listMetrics(script.options.prefix, script.options.metrics):
-        logger.info("Backup: Processing %s ..." % k)
-        # We acquire a file lock using the same locks whisper uses.  flock()
-        # exclusive locks are cleared when the file handle is closed.  This
-        # is the same practice that the whisper code uses.
-        logger.debug("Locking file...")
+    # I want to modify these variables in a sub-function, this is the
+    # only thing about python 2.x that makes me scream.
+    data = {}
+    data['complete'] = 0
+    data['length'] = 0
+
+    def init(script):
+        # The script object isn't pickle-able
+        globals()['script'] = script
+
+    def cb(result):
+        # Do some progress tracking when jobs complete
+        data['complete'] = data['complete'] + 1
+        if  data['complete'] % 5 == 0:
+            # Some rate limit on logging
+            logger.info("Progress: %s/%s or %f.1%%" \
+                    % (data['complete'], data['length'],
+                       100 * float( data['complete']) / float(data['length'])))
+
+    logger.info("Scanning filesystem...")
+    # Unroll the generator so we can calculate length
+    jobs = [ (k, p) for k, p in listMetrics(script.options.prefix, script.options.metrics) ]
+    data['length'] = len(jobs)
+
+    workers = Pool(processes=script.options.processes,
+                   initializer=init, initargs=[script])
+    logger.info("Starting backup...")
+    for k, p in jobs:
+        workers.apply_async(backupWorker, [k, p], callback=cb)
+
+    workers.close()
+    workers.join()
+    logger.info("Backup complete.")
+
+
+def backupWorker(k, p):
+    # Inside this fuction/process 'script' is global
+    logger.info("Backup: Processing %s ..." % k)
+    # We acquire a file lock using the same locks whisper uses.  flock()
+    # exclusive locks are cleared when the file handle is closed.  This
+    # is the same practice that the whisper code uses.
+    logger.debug("Locking file...")
+    try:
+        with open(p, "rb") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # May block
+            blob = fh.read()
+            timestamp = utc()
+    except IOError as e:
+        logger.warning("An IOError occured locking %s: %s" \
+                % (k, str(e)))
+        return
+    except Exception as e:
+        logger.error("An Unknown exception occurred, skipping metric")
+        logger.error(str(e))
+        return
+
+    # SHA1 hash...have we seen this metric DB file before?
+    logger.debug("Calculating hash and searching data store...")
+    blobSHA = hashlib.sha1(blob).hexdigest()
+    knownBackups = []
+    for i in script.store.list(k+"/"):
+        if i.endswith(".sha1"):
+            knownBackups.append(i)
+
+    knownBackups.sort()
+    if len(knownBackups) > 0:
+        i = knownBackups[-1] # The last known backup
+        logger.debug("Examining %s from data store..." % i)
+        if script.store.get(i) == blobSHA:
+            logger.info("Metric DB %s is unchanged from last backup, " \
+                        "skipping." % k)
+            # We purposely do not check retention in this case
+            return
+
+    # We're going to backup this file, compress it as a normal .gz
+    # file so that it can be restored manually if needed
+    logger.debug("Compressing data...")
+    blobgz = StringIO()
+    fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+    fd.write(blob)
+    fd.close()
+
+    # Grab our timestamp and assemble final upstream key location
+    remote = "%s/%s" % (k, timestamp)
+    logger.debug("Uploading payload...")
+    script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
+    script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
+
+    # Free Memory
+    blobgz.close()
+    del blob
+
+    # Handle our retention polity, we keep at most X backups
+    while len(knownBackups) + 1 > script.options.retention:
+         # The oldest (and not current) backup
+        i = knownBackups[0].replace(".sha1", "")
+        logger.info("Removing old backup: %s" % i+".wsp.gz")
         try:
-            with open(p, "rb") as fh:
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # May block
-                blob = fh.read()
-                timestamp = utc()
-        except IOError as e:
-            logger.warning("An IOError occured locking %s: %s" \
-                    % (k, str(e)))
-            continue
+            script.store.delete("%s.sha1" % i)
+            script.store.delete("%s.wsp.gz" % i)
         except Exception as e:
-            logger.error("An Unknown exception occurred, skipping metric")
-            logger.error(str(e))
-            continue
+            # On an error here we want to leave files alone
+            logger.warning("Exception during delete: %s" % str(e))
 
-        # SHA1 hash...have we seen this metric DB file before?
-        logger.debug("Calculating hash and searching data store...")
-        blobSHA = hashlib.sha1(blob).hexdigest()
-        knownBackups = []
-        for i in script.store.list(k+"/"):
-            if i.endswith(".sha1"):
-                knownBackups.append(i)
-
-        knownBackups.sort()
-        if len(knownBackups) > 0:
-            i = knownBackups[-1] # The last known backup
-            logger.debug("Examining %s from data store..." % i)
-            if script.store.get(i) == blobSHA:
-                logger.info("Metric DB %s is unchanged from last backup, " \
-                            "skipping." % k)
-                # We purposely do not check retention in this case
-                continue
-
-        # We're going to backup this file, compress it as a normal .gz
-        # file so that it can be restored manually if needed
-        logger.debug("Compressing data...")
-        blobgz = StringIO()
-        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-        fd.write(blob)
-        fd.close()
-
-        # Grab our timestamp and assemble final upstream key location
-        remote = "%s/%s" % (k, timestamp)
-        logger.debug("Uploading payload...")
-        script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
-        script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
-
-        # Free Memory
-        blobgz.close()
-        del blob
-
-        # Handle our retention polity, we keep at most X backups
-        while len(knownBackups) + 1 > script.options.retention:
-             # The oldest (and not current) backup
-            i = knownBackups[0].replace(".sha1", "")
-            logger.info("Removing old backup: %s" % i+".wsp.gz")
-            try:
-                script.store.delete("%s.sha1" % i)
-                script.store.delete("%s.wsp.gz" % i)
-            except Exception as e:
-                # On an error here we want to leave files alone
-                logger.warning("Exception during delete: %s" % str(e))
-
-            del knownBackups[0]
+        del knownBackups[0]
 
 
 def findBackup(script, objs, date):
@@ -223,6 +260,7 @@ def restore(script):
     metrics = {}  # What metrics do we restore? O(1) lookups please
 
     # Build a list of metrics to restore from our object store and globbing
+    logger.info("Searching remote file store...")
     for i in script.store.list():
         # The SHA1 is my canary/flag, we look for it
         if i.endswith(".sha1"):
@@ -296,6 +334,9 @@ def main():
     options.append(make_option("-p", "--prefix", type="string",
         default="/opt/graphite/storage/whisper",
         help="Root of where the whisper files live or will be restored to, default %default"))
+    options.append(make_option("-f", "--processes", type="int",
+        default=4,
+        help="Number of worker processes to spawn, default %default"))
     options.append(make_option("-r", "--retention", type="int",
         default=5,
         help="Number of unique backups to retain for each whisper file, default %default"))
