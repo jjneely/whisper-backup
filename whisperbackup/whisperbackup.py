@@ -94,10 +94,19 @@ def backup(script):
         # exclusive locks are cleared when the file handle is closed.  This
         # is the same practice that the whisper code uses.
         logger.debug("Locking file...")
-        with open(p, "rb") as fh:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # May block
-            blob = fh.read()
-            timestamp = utc()
+        try:
+            with open(p, "rb") as fh:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # May block
+                blob = fh.read()
+                timestamp = utc()
+        except IOError as e:
+            logger.warning("An IOError occured locking %s: %s" \
+                    % (k, str(e)))
+            continue
+        except Exception as e:
+            logger.error("An Unknown exception occurred, skipping metric")
+            logger.error(str(e))
+            continue
 
         # SHA1 hash...have we seen this metric DB file before?
         logger.debug("Calculating hash and searching data store...")
