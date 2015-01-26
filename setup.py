@@ -18,7 +18,7 @@
 
 setup_args = {
     "name": "whisper-backup",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "platforms": ["any"],
     "description": "Backup whisper DB files into S3 or Swift",
     "long_description": """\

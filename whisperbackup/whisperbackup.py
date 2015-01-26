@@ -104,9 +104,9 @@ def backup(script):
         data['complete'] = data['complete'] + 1
         if  data['complete'] % 5 == 0:
             # Some rate limit on logging
-            logger.info("Progress: %s/%s or %f.1%%" \
+            logger.info("Progress: %s/%s or %f%%" \
                     % (data['complete'], data['length'],
-                       100 * float( data['complete']) / float(data['length'])))
+                       100 * float(data['complete']) / float(data['length'])))
 
     logger.info("Scanning filesystem...")
     # Unroll the generator so we can calculate length

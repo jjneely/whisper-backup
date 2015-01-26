@@ -27,6 +27,9 @@ from random import randint
 import sys
 import time
 
+# Support for RotateFileHandler in multiple processes
+from multiprocessinglog import MultiProcessingLog, MultiProcessingLogStream
+
 __version__ = '0.2.0'
 
 
@@ -101,16 +104,22 @@ class CronScript(object):
 
         if not self.options.nolog:
             # Log to file as well
-            handler = logging.handlers.RotatingFileHandler(
-                "%s" % (self.options.logfile),
-                maxBytes=(10 * 1024 * 1024),
-                backupCount=10)
+            try:
+                handler = MultiProcessingLog(
+                    "%s" % (self.options.logfile),
+                    maxBytes=(50 * 1024 * 1024),
+                    backupCount=10)
+            except IOError:
+                sys.stderr.write("Fatal: Could not open log file: %s\n" \
+                                 % self.options.logfile)
+                sys.exit(1)
+
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
         # If quiet, only WARNING and above go to STDERR; otherwise all
         # logging goes to stderr
-        handler2 = logging.StreamHandler(sys.stderr)
+        handler2 = MultiProcessingLogStream(sys.stderr)
         if self.options.quiet:
             err_filter = StdErrFilter()
             handler2.addFilter(err_filter)
