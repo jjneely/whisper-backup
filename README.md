@@ -21,16 +21,52 @@ a sane away.  Goals:
 * On restore, if the WSP file already exists just backfill in the data
   rather than overwrite it.
 * File space for temp file copies is limited and is definitely not
-  large enough to fit an entire backup into.
+  large enough to fit an entire backup set into.
+* Use multiprocessing to handle large backup sets faster.
 
 Usage
 -----
 
-I decided not to make room to store multiple servers worth of WSP files in
+I decided not to design this to store multiple servers worth of WSP files in
 a single bucket/container of the storage service.  For large clusters this
 could be millions of files which may cause slowness with the API and other
 issues.  So if you have multiple servers you should set each machine to backup
 to its own bucket/container.
+
+```
+$ python whisperbackup.py --help
+Usage: whisperbackup.py [options] backup|restore|list swift|s3 [storage args]
+
+Options:
+  -p PREFIX, --prefix=PREFIX
+                        Root of where the whisper files live or will be
+                        restored to, default /opt/graphite/storage/whisper
+  -f PROCESSES, --processes=PROCESSES
+                        Number of worker processes to spawn, default 4
+  -r RETENTION, --retention=RETENTION
+                        Number of unique backups to retain for each whisper
+                        file, default 5
+  -b BUCKET, --bucket=BUCKET
+                        The AWS S3 bucket name or Swift container to use,
+                        default graphite-backups
+  -m METRICS, --metrics=METRICS
+                        Glob pattern of metric names to backup or restore,
+                        default *
+  -c DATE, --date=DATE  String in ISO-8601 date format. The last backup before
+                        this date will be used during the restore.  Default is
+                        now or 2015-01-26T15:41:55+00:00.
+  -d, --debug           Minimum log level of DEBUG
+  -q, --quiet           Only WARN and above to stdout
+  --nolog               Do not log to LOGFILE
+  --logfile=LOGFILE     File to log to, default /var/log/whisperbackup.py
+  --nolock              Do not use a lockfile
+  --lockfile=LOCKFILE   Lock file, default /var/tmp/whisperbackup.py
+  --locktimeout=LOCKTIMEOUT
+                        Lock timeout in seconds, default 90
+  --splay=SPLAY         Sleep a random time between 0 and N seconds before
+                        starting, default 0
+  -h, --help            show this help message and exit
+```
 
 Requirements
 ------------
