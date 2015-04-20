@@ -86,29 +86,3 @@ class Swift(object):
         """Delete the object in S3 referenced by the key name src."""
 
         self.conn.delete_object(self.bucket, src)
-
-
-if __name__ == "__main__":
-    s = Swift("fitbit.graphite-test")
-
-    def show():
-        for i in s.list():
-            print i
-
-    print "Should be empty"
-    show()
-    print
-    print "Non-existent file: %s" % s.get("foobar")
-    print
-    print "Storing a test"
-    s.put("test", "This is a test")
-    print
-    print "Test file contents: %s" % s.get("test")
-    print
-    print "Objects in bucket"
-    show()
-    print
-    print "Deleting test file"
-    s.delete("test")
-    print
-
