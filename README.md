@@ -75,7 +75,6 @@ Required python packages and the versions of which I've tested with.
 
 * whisper >= 0.9.12
 * carbon >= 0.9.12
-* carbonate >= 0.2.1
 * lockfile
 
 For AWS S3 support:

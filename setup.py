@@ -18,7 +18,7 @@
 
 setup_args = {
     "name": "whisper-backup",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "platforms": ["any"],
     "description": "Backup whisper DB files into S3 or Swift",
     "long_description": """\
@@ -34,7 +34,7 @@ server.
     "url": 'https://github.com/jjneely/whisper-backup',
     "license": "Apache Software License",
     "packages": ["whisperbackup"],
-    "install_requires": ['lockfile', 'carbonate', 'whisper'],
+    "install_requires": ['lockfile', 'whisper'],
     "classifiers": [
         "Development Status :: 4 - Beta",
         "Intended Audience :: System Administrators",
