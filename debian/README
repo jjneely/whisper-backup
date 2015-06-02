@@ -1,0 +1,9 @@
+The Debian Package whisper-backup
+----------------------------
+
+Some better packaging techniques could be used here:
+
+* We depend on python-swift or boto -- one or both.
+* We depend on whisper for restores.
+
+ -- Jack Neely <jjneely@42lines.net>  Tue, 02 Jun 2015 15:49:25 -0400
