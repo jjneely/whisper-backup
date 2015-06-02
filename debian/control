@@ -2,13 +2,13 @@ Source: whisper-backup
 Section: unknown
 Priority: optional
 Maintainer: Jack Neely <jjneely@42lines.net>
-Build-Depends: debhelper (>= 8.0.0), dh-python, python-all (>= 2.6.6-3~)
+Build-Depends: debhelper (>= 8.0.0), dh-python, python-all (>= 2.6.6-3~), python-setuptools
 Standards-Version: 3.9.4
 Homepage: https://github.com/jjneely/whisper-backup
 
 Package: whisper-backup
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-setuptools, python-swift, boto
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-swiftclient, python-boto
 Description: Backup Graphite Whisper files to reliable storage.
  Backup Graphite's storage directory full of Whisper files to reliable
  storage including AWS S3 and OpenStack Swift.  Multi-process and fast
