@@ -22,10 +22,11 @@ logger = logging.getLogger(__main__.__name__)
 
 class NoOP(object):
 
-    def __init__(self, bucket):
+    def __init__(self, bucket, noop):
         """Setup the S3 storage backend with the bucket we will use and
            optional region."""
         self.bucket = bucket
+        self.noop = noop
 
     def list(self, prefix=""):
         """Return all keys in this bucket."""

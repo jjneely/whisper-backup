@@ -27,12 +27,13 @@ logger = logging.getLogger(__main__.__name__)
 
 class Swift(object):
 
-    def __init__(self, bucket):
+    def __init__(self, bucket, noop):
         """Setup the S3 storage backend with the bucket we will use and
            optional region."""
 
         # This is our Swift container
         self.bucket = bucket
+        self.noop = noop
 
         # We assume your environment variables are set correctly just like
         # you would for the swift command line util
@@ -48,7 +49,7 @@ class Swift(object):
         headers, objs =  self.conn.get_account(self.bucket)
         for i in objs:
             logger.debug("Searching for bucket %s == %s" % (self.bucket, i))
-        if self.bucket not in objs:
+        if not noop and self.bucket not in objs:
             self.conn.put_container(self.bucket)
 
 
@@ -79,10 +80,16 @@ class Swift(object):
         """Store the contents of the string data at a key named by dst
            in S3."""
 
-        self.conn.put_object(self.bucket, dst, data)
+        if noop:
+            logger.info("No-Op Put: %s" % dst)
+        else:
+            self.conn.put_object(self.bucket, dst, data)
 
 
     def delete(self, src):
         """Delete the object in S3 referenced by the key name src."""
 
-        self.conn.delete_object(self.bucket, src)
+        if noop:
+            logger.info("No-Op Delete: %s" % src)
+        else:
+            self.conn.delete_object(self.bucket, src)

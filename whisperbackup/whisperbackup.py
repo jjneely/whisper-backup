@@ -68,17 +68,17 @@ def storageBackend(script):
         sys.exit(1)
     if script.args[1].lower() == "noop":
         import noop
-        return noop.NoOP(script.options.bucket)
+        return noop.NoOP(script.options.bucket, script.options.noop)
     if script.args[1].lower() == "s3":
         import s3
         if len(script.args) > 2:
             region = script.args[2]
         else:
             region = "us-east-1"
-        return s3.S3(script.options.bucket, region)
+        return s3.S3(script.options.bucket, region, script.options.noop)
     if script.args[1].lower() == "swift":
         import swift
-        return swift.Swift(script.options.bucket)
+        return swift.Swift(script.options.bucket, script.options.noop)
 
     logger.error("Invalid storage backend, must be 'swift', 's3', or 'noop'")
     sys.exit(1)
@@ -122,6 +122,36 @@ def backup(script):
     workers.close()
     workers.join()
     logger.info("Backup complete.")
+
+    if script.options.prune > 0:
+        prune(script, [ k for k, p in jobs ])
+
+
+def prune(script, localMetrics):
+    """Prune backups in our store that are non-existant on local disk and
+       are more than prune days old as set in the command line options."""
+
+    log.info("Beginning prune operation.")
+    metrics = search(script)
+    expireDate = datetime.datetime.utcnow() - datetime.timedelta(days=script.options.prune)
+    expireStamp = expireDate.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+    # Search through the in-store metrics
+    for k, v in metrics:
+        if k in localMetrics:
+            continue
+        for p in v:
+            ts = k[k.find("/")+1:]
+            if ts < expireStamp:
+                log.info("Pruning %s @ %s", % (k, ts))
+                try:
+                    script.store.delete("%s/%s.sha1" % (k, ts))
+                    script.store.delete("%s/%s.wsp.gz" % (k, ts))
+                except Exception as e:
+                    # On an error here we want to leave files alone
+                    logger.warning("Exception during delete: %s" % str(e))
+
+    log.info("Prune complete.")
 
 
 def backupWorker(k, p):
@@ -198,13 +228,15 @@ def backupWorker(k, p):
 
 def findBackup(script, objs, date):
     """Return the UTC ISO 8601 timestamp embedded in the given list of file
-       objs that is the last timestamp before date.  Where data is a
+       objs that is the last timestamp before date.  Where date is a
        ISO 8601 string."""
 
     timestamps = []
     for i in objs:
         i = i[i.find("/")+1:]
-        i = i[:i.find(".")]
+        if "." in i:
+            i = i[:i.find(".")]
+        # So now i is just the ISO8601 timestamp
         # XXX: Should probably actually parse the tz here
         timestamps.append(datetime.datetime.strptime(i, "%Y-%m-%dT%H:%M:%S+00:00"))
 
@@ -255,24 +287,34 @@ def heal(script, metric, data):
 
     os.unlink(filename)
 
+def search(script):
+    """Return a hash such that all keys are metric names found in our
+       backup store and metric names match the glob given on the command
+       line.  Each value will be a list paths into the backup store of
+       all present backups.  Technically, the path to the SHA1 checksum file
+       but the path will not have the ".sha1" extension."""
 
-def restore(script):
-    metrics = {}  # What metrics do we restore? O(1) lookups please
-
-    # Build a list of metrics to restore from our object store and globbing
     logger.info("Searching remote file store...")
+    metrics = {}
+
     for i in script.store.list():
         # The SHA1 is my canary/flag, we look for it
         if i.endswith(".sha1"):
             # The metric name is everything before the first /
             m = i[:i.find("/")]
             if fnmatch(m, script.options.metrics):
-                if m not in metrics:
-                    metrics[m] = None
+                metrics[m] = metrics.get(m, []).append(i[:-5])
+
+    return metrics
+
+
+def restore(script):
+    # Build a list of metrics to restore from our object store and globbing
+    metrics = search(script)
 
     # For each metric, find the date we want
     for i in metrics.keys():
-        objs = script.store.list("%s/" % i)
+        objs = metrics[i]
         d = findBackup(script, objs, script.options.date)
         logger.info("Restoring %s from timestamp %s" % (i, d))
 
@@ -340,6 +382,12 @@ def main():
     options.append(make_option("-r", "--retention", type="int",
         default=5,
         help="Number of unique backups to retain for each whisper file, default %default"))
+    options.append(make_option("-x", "--purge", type="int",
+        default=45,
+        help="Days to keep unknown Whisper file backups, 0 disables, default %default"))
+    options.append(make_option("-n", "--noop", type="bool",
+        default=False,
+        help="Do not modify the object store, default %default"))
     options.append(make_option("-b", "--bucket", type="string",
         default="graphite-backups",
         help="The AWS S3 bucket name or Swift container to use, default %default"))

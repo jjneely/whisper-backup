@@ -46,6 +46,8 @@ Options:
   -r RETENTION, --retention=RETENTION
                         Number of unique backups to retain for each whisper
                         file, default 5
+  -x PURGE, --purge=PURGE
+                        Days to keep unknown Whisper file backups, default 90
   -b BUCKET, --bucket=BUCKET
                         The AWS S3 bucket name or Swift container to use,
                         default graphite-backups
@@ -67,6 +69,10 @@ Options:
                         starting, default 0
   -h, --help            show this help message and exit
 ```
+
+Notes:
+* Purge removes Whisper backups in the datastore for Whisper files not
+  presently on the server.  Such as deleted or moved Whisper files.
 
 Requirements
 ------------
