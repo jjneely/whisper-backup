@@ -154,7 +154,7 @@ def purge(script, localMetrics):
                     # On an error here we want to leave files alone
                     logger.warning("Exception during delete: %s" % str(e))
 
-    log.info("Prune complete.")
+    logger.info("Prune complete.")
 
 
 def backupWorker(k, p):
