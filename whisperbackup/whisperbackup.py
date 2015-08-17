@@ -123,17 +123,17 @@ def backup(script):
     workers.join()
     logger.info("Backup complete.")
 
-    if script.options.prune > 0:
-        prune(script, [ k for k, p in jobs ])
+    if script.options.purge > 0:
+        purge(script, [ k for k, p in jobs ])
 
 
-def prune(script, localMetrics):
+def purge(script, localMetrics):
     """Prune backups in our store that are non-existant on local disk and
-       are more than prune days old as set in the command line options."""
+       are more than purge days old as set in the command line options."""
 
-    log.info("Beginning prune operation.")
+    logger.info("Beginning purge operation.")
     metrics = search(script)
-    expireDate = datetime.datetime.utcnow() - datetime.timedelta(days=script.options.prune)
+    expireDate = datetime.datetime.utcnow() - datetime.timedelta(days=script.options.purge)
     expireStamp = expireDate.strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
     # Search through the in-store metrics
@@ -143,7 +143,7 @@ def prune(script, localMetrics):
         for p in v:
             ts = k[k.find("/")+1:]
             if ts < expireStamp:
-                log.info("Pruning %s @ %s" % (k, ts))
+                logger.info("Pruning %s @ %s" % (k, ts))
                 try:
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
@@ -422,18 +422,18 @@ def main():
             # Use splay and lockfile settings
             script.store = storageBackend(script)
             restore(script)
-    elif mode == "prune":
+    elif mode == "purge":
         with script:
             # Use splay and lockfile settings
             script.store = storageBackend(script)
-            prune(script, [k for k, p in listMetrics(script.options.prefix, script.options.metrics)])
+            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.metrics)])
     elif mode == "list":
         # Splay and lockfile settings make no sense here
         script.store = storageBackend(script)
         listbackups(script)
     else:
         logger.error("Command %s unknown.  Must be one of backup, restore, " \
-                     "prune, or list." % script.args[0])
+                     "purge, or list." % script.args[0])
         sys.exit(1)
 
 
