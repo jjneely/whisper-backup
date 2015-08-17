@@ -35,7 +35,7 @@ to its own bucket/container.
 
 ```
 $ python whisperbackup.py --help
-Usage: whisperbackup.py [options] backup|restore|list swift|s3 [storage args]
+Usage: whisperbackup.py [options] backup|restore|purge|list swift|s3 [storage args]
 
 Options:
   -p PREFIX, --prefix=PREFIX
@@ -47,7 +47,9 @@ Options:
                         Number of unique backups to retain for each whisper
                         file, default 5
   -x PURGE, --purge=PURGE
-                        Days to keep unknown Whisper file backups, default 90
+                        Days to keep unknown Whisper file backups, -1 disables,
+                        default 45
+  -n, --noop            Do not modify the object store, default False
   -b BUCKET, --bucket=BUCKET
                         The AWS S3 bucket name or Swift container to use,
                         default graphite-backups
@@ -56,7 +58,7 @@ Options:
                         default *
   -c DATE, --date=DATE  String in ISO-8601 date format. The last backup before
                         this date will be used during the restore.  Default is
-                        now or 2015-01-26T15:41:55+00:00.
+                        now.
   -d, --debug           Minimum log level of DEBUG
   -q, --quiet           Only WARN and above to stdout
   --nolog               Do not log to LOGFILE
@@ -68,11 +70,13 @@ Options:
   --splay=SPLAY         Sleep a random time between 0 and N seconds before
                         starting, default 0
   -h, --help            show this help message and exit
+
 ```
 
 Notes:
 * Purge removes Whisper backups in the datastore for Whisper files not
-  presently on the server.  Such as deleted or moved Whisper files.
+  presently on the server.  Such as deleted or moved Whisper files.  A setting
+  of 0 will immediately purge backups for metrics not on the local disk.
 
 Requirements
 ------------
@@ -100,3 +104,8 @@ To Do
 -----
 
 * We use multiprocess.Pool for backups, but restores are still single process
+* Purge bug:  If a metric has been idle for 45 days
+  then the backup date on that file in the object store hasn't changed.  So
+  once that metric is removed from local disk it will be immediately removed
+  from the object store rather than 45 days after it was removed from local
+  disk.
