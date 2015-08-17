@@ -143,7 +143,7 @@ def prune(script, localMetrics):
         for p in v:
             ts = k[k.find("/")+1:]
             if ts < expireStamp:
-                log.info("Pruning %s @ %s", % (k, ts))
+                log.info("Pruning %s @ %s" % (k, ts))
                 try:
                     script.store.delete("%s/%s.sha1" % (k, ts))
                     script.store.delete("%s/%s.wsp.gz" % (k, ts))
@@ -385,7 +385,7 @@ def main():
     options.append(make_option("-x", "--purge", type="int",
         default=45,
         help="Days to keep unknown Whisper file backups, 0 disables, default %default"))
-    options.append(make_option("-n", "--noop", type="bool",
+    options.append(make_option("-n", "--noop", action="store_true",
         default=False,
         help="Do not modify the object store, default %default"))
     options.append(make_option("-b", "--bucket", type="string",
@@ -408,20 +408,29 @@ def main():
         logger.info("See the README for help or use the --help option.")
         sys.exit(1)
 
-    if script.args[0] == "backup":
+    mode = script.args[0].lower()
+    if mode == "backup":
         with script:
+            # Use splay and lockfile settings
             script.store = storageBackend(script)
             backup(script)
-    elif script.args[0] == "restore":
+    elif mode == "restore":
         with script:
+            # Use splay and lockfile settings
             script.store = storageBackend(script)
             restore(script)
-    elif script.args[0] == "list":
+    elif mode == "prune":
+        with script:
+            # Use splay and lockfile settings
+            script.store = storageBackend(script)
+            prune(script, [k for k, p in listMetrics(script.options.prefix, script.options.metrics)])
+    elif mode == "list":
+        # Splay and lockfile settings make no sense here
         script.store = storageBackend(script)
         listbackups(script)
     else:
         logger.error("Command %s unknown.  Must be one of backup, restore, " \
-                     "or list." % script.args[0])
+                     "prune, or list." % script.args[0])
         sys.exit(1)
 
 
