@@ -53,16 +53,17 @@ class Swift(object):
             self.conn.put_container(self.bucket)
 
 
-    def list(self, prefix=""):
+    def list(self, prefix=None):
         """Return all keys in this bucket."""
 
-        if prefix == "":
-            headers, objs = self.conn.get_container(self.bucket)
-        else:
-            headers, objs = self.conn.get_container(self.bucket, prefix=prefix)
-
-        for i in objs:
-            yield i["name"]
+        headers, objs = self.conn.get_container(self.bucket, prefix=prefix)
+        while objs:
+            # Handle paging
+            i = {}
+            for i in objs:
+                yield i["name"]
+            headers, objs = self.conn.get_container(self.bucket,
+                    marker=i["name"], prefix=prefix)
 
 
     def get(self, src):
