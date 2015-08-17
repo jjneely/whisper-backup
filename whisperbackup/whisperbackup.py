@@ -123,13 +123,16 @@ def backup(script):
     workers.join()
     logger.info("Backup complete.")
 
-    if script.options.purge > 0:
-        purge(script, [ k for k, p in jobs ])
+    purge(script, [ k for k, p in jobs ])
 
 
 def purge(script, localMetrics):
-    """Prune backups in our store that are non-existant on local disk and
+    """Purge backups in our store that are non-existant on local disk and
        are more than purge days old as set in the command line options."""
+
+    if script.options.purge < 0:
+        # purging is disabled
+        return
 
     logger.info("Beginning purge operation.")
     metrics = search(script)
@@ -157,7 +160,7 @@ def purge(script, localMetrics):
                 else:
                     c += 1
 
-    logger.info("Prune complete -- %d backups removed")
+    logger.info("Purge complete -- %d backups removed" % c)
 
 
 def backupWorker(k, p):
@@ -376,7 +379,7 @@ def listbackups(script):
 
 
 def main():
-    usage = "%prog [options] backup|restore|list swift|s3 [storage args]"
+    usage = "%prog [options] backup|restore|purge|list swift|s3 [storage args]"
     options = []
 
     options.append(make_option("-p", "--prefix", type="string",
