@@ -145,8 +145,11 @@ def prune(script, localMetrics):
             if ts < expireStamp:
                 log.info("Pruning %s @ %s" % (k, ts))
                 try:
-                    script.store.delete("%s/%s.sha1" % (k, ts))
+                    # Delete the WSP file first, if the delete of the SHA1
+                    # causes the error, the next run will get it, rather
+                    # than just leaking the WSP storage space.
                     script.store.delete("%s/%s.wsp.gz" % (k, ts))
+                    script.store.delete("%s/%s.sha1" % (k, ts))
                 except Exception as e:
                     # On an error here we want to leave files alone
                     logger.warning("Exception during delete: %s" % str(e))
@@ -217,8 +220,8 @@ def backupWorker(k, p):
         i = knownBackups[0].replace(".sha1", "")
         logger.info("Removing old backup: %s" % i+".wsp.gz")
         try:
-            script.store.delete("%s.sha1" % i)
             script.store.delete("%s.wsp.gz" % i)
+            script.store.delete("%s.sha1" % i)
         except Exception as e:
             # On an error here we want to leave files alone
             logger.warning("Exception during delete: %s" % str(e))
