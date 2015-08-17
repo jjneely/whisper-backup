@@ -56,7 +56,7 @@ class S3(object):
         """Store the contents of the string data at a key named by dst
            in S3."""
 
-        if noop:
+        if self.noop:
             logger.info("No-Op Put: %s" % dst)
         else:
             k = Key(self.__b)
@@ -66,7 +66,7 @@ class S3(object):
     def delete(self, src):
         """Delete the object in S3 referenced by the key name src."""
 
-        if noop:
+        if self.noop:
             logger.info("No-Op Delete: %s" % src)
         else:
             k = Key(self.__b)

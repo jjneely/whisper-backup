@@ -135,15 +135,16 @@ def purge(script, localMetrics):
     metrics = search(script)
     expireDate = datetime.datetime.utcnow() - datetime.timedelta(days=script.options.purge)
     expireStamp = expireDate.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    c = 0
 
     # Search through the in-store metrics
-    for k, v in metrics:
+    for k, v in metrics.items():
         if k in localMetrics:
             continue
         for p in v:
-            ts = k[k.find("/")+1:]
+            ts = p[p.find("/")+1:]
             if ts < expireStamp:
-                logger.info("Pruning %s @ %s" % (k, ts))
+                logger.info("Purging %s @ %s" % (k, ts))
                 try:
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
@@ -153,8 +154,10 @@ def purge(script, localMetrics):
                 except Exception as e:
                     # On an error here we want to leave files alone
                     logger.warning("Exception during delete: %s" % str(e))
+                else:
+                    c += 1
 
-    logger.info("Prune complete.")
+    logger.info("Prune complete -- %d backups removed")
 
 
 def backupWorker(k, p):
@@ -306,7 +309,7 @@ def search(script):
             # The metric name is everything before the first /
             m = i[:i.find("/")]
             if fnmatch(m, script.options.metrics):
-                metrics[m] = metrics.get(m, []).append(i[:-5])
+                metrics.setdefault(m, []).append(i[:-5])
 
     return metrics
 
