@@ -1,3 +1,10 @@
+whisper-backup (0.1.0-1) unstable; urgency=medium
+
+  * Updated pycronscript to 0.2.1
+  * Old backup purge support
+
+ -- Jack Neely <jjneely@42lines.net>  Tue, 18 Aug 2015 11:47:33 -0400
+
 whisper-backup (0.0.4-1) unstable; urgency=low
 
   * Initial Release.
