@@ -3,7 +3,21 @@ whisper-backup
 
 I needed a handy way to backup my Graphite cluster to reliable storage such as
 Amazon S3 or OpenStack Swift.  Also, the ability to restore that data in
-a sane away.  Goals:
+a sane away.
+
+Example
+-------
+
+```
+$ whisper-backup --logfile /opt/graphite/storage/log/whisper-backup/whisper-backup.log \
+        --bucket fitbit.graphite.$(hostname -s) \
+        --retention 5 \
+        --quiet \
+        backup swift
+```
+
+Goals
+-----
 
 * Compress WSP data.  Space is cash and they compress well.
 * Support storing multiple backups of the same WSP DB over a retention
