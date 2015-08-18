@@ -144,7 +144,7 @@ class CronScript(object):
         handler2.setFormatter(default_formatter)
         self.logger.addHandler(handler2)
 
-        self.logger.info(self.options)
+        self.logger.debug(self.options)
 
     def __enter__(self):
         if self.options.splay > 0:
