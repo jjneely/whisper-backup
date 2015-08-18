@@ -17,7 +17,7 @@
 # limitations under the License.
 
 import datetime as DT
-from lockfile import FileLock
+from lockfile import FileLock, LockFailed, LockTimeout
 import logging
 import logging.handlers
 import __main__ as main
@@ -30,7 +30,7 @@ import time
 # Support for RotateFileHandler in multiple processes
 from multiprocessinglog import MultiProcessingLog, MultiProcessingLogStream
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 
 class StdErrFilter(logging.Filter):
@@ -64,8 +64,9 @@ class CronScript(object):
             args = sys.argv[1:]
 
         prog = os.path.basename(main.__file__)
-        logfile = os.path.join('/var/log/', prog)
-        lockfile = os.path.join('/var/tmp/', prog)
+        logfile = os.path.join('/var/log/', "%s.log" % prog)
+        lockfile = os.path.join('/var/lock/', "%s.lock" % prog)
+        stampfile = os.path.join('/var/tmp/', "%s.success" % prog)
         options.append(make_option("--debug", "-d", action="store_true",
                                    help="Minimum log level of DEBUG"))
         options.append(make_option("--quiet", "-q", action="store_true",
@@ -75,11 +76,18 @@ class CronScript(object):
         options.append(make_option("--logfile", type="string",
                                    default=logfile,
                                    help="File to log to, default %default"))
+        options.append(make_option("--syslog", action="store_true",
+                                   help="Log to syslog instead of a file"))
         options.append(make_option("--nolock", action="store_true",
                                    help="Do not use a lockfile"))
         options.append(make_option("--lockfile", type="string",
                                    default=lockfile,
                                    help="Lock file, default %default"))
+        options.append(make_option("--nostamp", action="store_true",
+                                   help="Do not use a success stamp file"))
+        options.append(make_option("--stampfile", type="string",
+                                   default=stampfile,
+                                   help="Success stamp file, default %default"))
         helpmsg = "Lock timeout in seconds, default %default"
         options.append(make_option("--locktimeout", default=90, type="int",
                                    help=helpmsg))
@@ -94,27 +102,37 @@ class CronScript(object):
         (self.options, self.args) = parser.parse_args(args)
 
         self.logger = logging.getLogger(main.__name__)
-        formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s",
-                                      "%Y-%m-%d-%H:%M:%S")
 
         if self.options.debug:
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
 
+        # Log to syslog
+        if self.options.syslog:
+            syslog_formatter = logging.Formatter("%s: %%(levelname)s %%(message)s" % prog)
+            handler = logging.handlers.SysLogHandler(
+                    address="/dev/log",
+                    facility=logging.handlers.SysLogHandler.LOG_LOCAL3
+                    )
+            handler.setFormatter(syslog_formatter)
+            self.logger.addHandler(handler)
+
+        default_formatter = logging.Formatter("%(asctime)s;%(levelname)s;%(message)s",
+                                              "%Y-%m-%d-%H:%M:%S")
         if not self.options.nolog:
-            # Log to file as well
+            # Log to file
             try:
                 handler = MultiProcessingLog(
                     "%s" % (self.options.logfile),
                     maxBytes=(50 * 1024 * 1024),
                     backupCount=10)
             except IOError:
-                sys.stderr.write("Fatal: Could not open log file: %s\n" \
+                sys.stderr.write("Fatal: Could not open log file: %s\n"
                                  % self.options.logfile)
                 sys.exit(1)
 
-            handler.setFormatter(formatter)
+            handler.setFormatter(default_formatter)
             self.logger.addHandler(handler)
 
         # If quiet, only WARNING and above go to STDERR; otherwise all
@@ -123,10 +141,10 @@ class CronScript(object):
         if self.options.quiet:
             err_filter = StdErrFilter()
             handler2.addFilter(err_filter)
-        handler2.setFormatter(formatter)
+        handler2.setFormatter(default_formatter)
         self.logger.addHandler(handler2)
 
-        self.logger.debug(self.options)
+        self.logger.info(self.options)
 
     def __enter__(self):
         if self.options.splay > 0:
@@ -140,7 +158,16 @@ class CronScript(object):
                               self.options.lockfile,
                               self.options.locktimeout)
             self.lock = FileLock(self.options.lockfile)
-            self.lock.acquire(timeout=self.options.locktimeout)
+            try:
+                self.lock.acquire(timeout=self.options.locktimeout)
+            except LockFailed as e:
+                self.logger.error("Lock could not be acquired.")
+                self.logger.error(str(e))
+                sys.exit(1)
+            except LockTimeout as e:
+                msg = "Lock could not be acquired. Timeout exceeded."
+                self.logger.error(msg)
+                sys.exit(1)
 
     def __exit__(self, etype, value, traceback):
         self.end_time = DT.datetime.today()
@@ -149,3 +176,6 @@ class CronScript(object):
             self.logger.debug('Attempting to release lock %s',
                               self.options.lockfile)
             self.lock.release()
+        if etype is None:
+            if not self.options.nostamp:
+                open(self.options.stampfile, "w")
