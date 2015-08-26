@@ -30,6 +30,7 @@ class S3(object):
            optional region."""
         self.conn = boto.connect_s3()
         self.bucket = bucket
+        self.noop = noop
 
         b = self.conn.lookup(self.bucket)
         if not noop and b is None:
