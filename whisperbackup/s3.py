@@ -23,7 +23,15 @@ from boto.s3.key import Key
 
 logger = logging.getLogger(__main__.__name__)
 
+
 class S3(object):
+    """AWS S3 storage object
+
+    References:
+
+    - http://boto.readthedocs.org/en/latest/ref/boto.html#boto.connect_s3
+    - http://boto.readthedocs.org/en/latest/ref/s3.html
+    """
 
     def __init__(self, bucket, key_prefix=None, noop=False):
         """Setup the S3 storage backend with the bucket we will use."""
