@@ -71,11 +71,9 @@ def storageBackend(script):
         return noop.NoOP(script.options.bucket, script.options.noop)
     if script.args[1].lower() == "s3":
         import s3
-        if len(script.args) > 2:
-            region = script.args[2]
-        else:
-            region = "us-east-1"
-        return s3.S3(script.options.bucket, region, script.options.noop)
+        return s3.S3(script.options.bucket,
+                     script.options.keyprefix,
+                     script.options.noop)
     if script.args[1].lower() == "swift":
         import swift
         return swift.Swift(script.options.bucket, script.options.noop)
@@ -400,6 +398,9 @@ def main():
     options.append(make_option("-b", "--bucket", type="string",
         default="graphite-backups",
         help="The AWS S3 bucket name or Swift container to use, default %default"))
+    options.append(make_option("-k", "--keyprefix", type="string",
+        default=None,
+        help="The AWS S3 bucket key prefix to use - if empty, all files will be put into the root of the bucket %default"))
     options.append(make_option("-m", "--metrics", type="string",
         default="*",
         help="Glob pattern of metric names to backup or restore, default %default"))

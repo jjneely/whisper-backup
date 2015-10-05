@@ -25,30 +25,32 @@ logger = logging.getLogger(__main__.__name__)
 
 class S3(object):
 
-    def __init__(self, bucket, region="us-east-1", noop=False):
-        """Setup the S3 storage backend with the bucket we will use and
-           optional region."""
+    def __init__(self, bucket, key_prefix=None, noop=False):
+        """Setup the S3 storage backend with the bucket we will use."""
         self.conn = boto.connect_s3()
         self.bucket = bucket
+        self.key_prefix = key_prefix
         self.noop = noop
-
         b = self.conn.lookup(self.bucket)
         if not noop and b is None:
             # Create the bucket if it doesn't exist
             self.conn.create_bucket(self.bucket)
-
         self.__b = self.conn.get_bucket(self.bucket)
 
     def list(self, prefix=""):
         """Return all keys in this bucket."""
+        prefix = prefix or ""
+        if self.key_prefix:
+            prefix = self.key_prefix + "/" + prefix
         for i in self.__b.list(prefix):
             yield i.key
 
     def get(self, src):
         """Return the contents of src from S3 as a string."""
+        if self.key_prefix:
+            src = self.key_prefix + "/" + src
         if self.__b.get_key(src) is None:
             return None
-
         k = Key(self.__b)
         k.key = src
         return k.get_contents_as_string()
@@ -56,7 +58,8 @@ class S3(object):
     def put(self, dst, data):
         """Store the contents of the string data at a key named by dst
            in S3."""
-
+        if self.key_prefix:
+            dst = self.key_prefix + "/" + dst
         if self.noop:
             logger.info("No-Op Put: %s" % dst)
         else:
@@ -66,7 +69,8 @@ class S3(object):
 
     def delete(self, src):
         """Delete the object in S3 referenced by the key name src."""
-
+        if self.key_prefix:
+            src = self.key_prefix + "/" + src
         if self.noop:
             logger.info("No-Op Delete: %s" % src)
         else:

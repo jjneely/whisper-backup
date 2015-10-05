@@ -28,8 +28,7 @@ logger = logging.getLogger(__main__.__name__)
 class Swift(object):
 
     def __init__(self, bucket, noop):
-        """Setup the S3 storage backend with the bucket we will use and
-           optional region."""
+        """Setup the S3 storage backend with the bucket we will use."""
 
         # This is our Swift container
         self.bucket = bucket
