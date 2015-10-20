@@ -28,7 +28,7 @@ class S3(object):
     def __init__(self, bucket, region="us-east-1", noop=False):
         """Setup the S3 storage backend with the bucket we will use and
            optional region."""
-        self.conn = boto.connect_s3()
+        self.conn = boto.s3.connect_to_region(region)
         self.bucket = bucket
         self.noop = noop
 
