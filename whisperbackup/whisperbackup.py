@@ -152,8 +152,8 @@ def purge(script, localMetrics):
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
                     # than just leaking the WSP storage space.
-                    script.store.delete("%s/%s.wsp.gz" % (k, ts))
-                    script.store.delete("%s/%s.sha1" % (k, ts))
+                    script.store.delete("%s%s/%s.wsp.gz" % (script.options.storage_path, k, ts))
+                    script.store.delete("%s%s/%s.sha1" % (script.options.storage_path, k, ts))
                 except Exception as e:
                     # On an error here we want to leave files alone
                     logger.warning("Exception during delete: %s" % str(e))
@@ -436,7 +436,7 @@ def main():
         with script:
             # Use splay and lockfile settings
             script.store = storageBackend(script)
-            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.metrics)])
+            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.storage_path, script.options.metrics)])
     elif mode == "list":
         # Splay and lockfile settings make no sense here
         script.store = storageBackend(script)
