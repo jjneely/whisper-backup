@@ -207,11 +207,14 @@ def backupWorker(k, p):
 
     # We're going to backup this file, compress it as a normal .gz
     # file so that it can be restored manually if needed
-    logger.debug("Compressing data...")
-    blobgz = StringIO()
-    fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-    fd.write(blob)
-    fd.close()
+    if not script.options.noop:
+        logger.debug("Compressing data...")
+        blobgz = StringIO()
+        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+        fd.write(blob)
+        fd.close()
+    else:
+        logger.info("Skipping compression for noop run")
 
     # Grab our timestamp and assemble final upstream key location
     remote = "%s/%s" % (k, timestamp)
