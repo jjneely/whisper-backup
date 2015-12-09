@@ -64,8 +64,11 @@ def toPath(prefix, metric):
 
 def storageBackend(script):
     if len(script.args) <= 1:
-        logger.error("Storage backend must be specified, either 'swift' or 's3'")
+        logger.error("Storage backend must be specified, either 'swift', 's3', 'noop', or 'disk'")
         sys.exit(1)
+    if script.args[1].lower() == "disk":
+        import disk
+        return disk.Disk(script.options.bucket, script.options.noop)
     if script.args[1].lower() == "noop":
         import noop
         return noop.NoOP(script.options.bucket, script.options.noop)
@@ -80,7 +83,7 @@ def storageBackend(script):
         import swift
         return swift.Swift(script.options.bucket, script.options.noop)
 
-    logger.error("Invalid storage backend, must be 'swift', 's3', or 'noop'")
+    logger.error("Invalid storage backend, must be 'swift', 's3', 'noop', or 'disk'")
     sys.exit(1)
 
 
@@ -204,11 +207,14 @@ def backupWorker(k, p):
 
     # We're going to backup this file, compress it as a normal .gz
     # file so that it can be restored manually if needed
-    logger.debug("Compressing data...")
-    blobgz = StringIO()
-    fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-    fd.write(blob)
-    fd.close()
+    if not script.options.noop:
+        logger.debug("Compressing data...")
+        blobgz = StringIO()
+        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+        fd.write(blob)
+        fd.close()
+    else:
+        logger.info("Skipping compression for noop run")
 
     # Grab our timestamp and assemble final upstream key location
     remote = "%s/%s" % (k, timestamp)
@@ -379,7 +385,7 @@ def listbackups(script):
 
 
 def main():
-    usage = "%prog [options] backup|restore|purge|list swift|s3 [storage args]"
+    usage = "%prog [options] backup|restore|purge|list disk|swift|s3 [storage args]"
     options = []
 
     options.append(make_option("-p", "--prefix", type="string",
