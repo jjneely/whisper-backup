@@ -35,7 +35,7 @@ class S3(object):
         b = self.conn.lookup(self.bucket)
         if not noop and b is None:
             # Create the bucket if it doesn't exist
-            self.conn.create_bucket(self.bucket)
+            self.conn.create_bucket(self.bucket, location=region)
 
         self.__b = self.conn.get_bucket(self.bucket)
 
