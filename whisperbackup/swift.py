@@ -40,7 +40,8 @@ class Swift(object):
         try:
             self.conn = Connection(authurl=os.environ["ST_AUTH"],
                                user=os.environ["ST_USER"],
-                               key=os.environ["ST_KEY"])
+                               key=os.environ["ST_KEY"],
+                               timeout=90)  # 90 second timeout
         except KeyError:
             logger.warning("Missing environment variables for Swift authentication")
             logger.warning("Bailing...")
