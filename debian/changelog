@@ -1,3 +1,10 @@
+whisper-backup (0.1.1-1) unstable; urgency=medium
+
+  * Build requiring python-swiftclient >= 3.0.0 which includes support
+    for timeouts on the HTTP connections
+
+ -- Jack Neely <jjneely@42lines.net>  Fri, 13 Jan 2017 15:17:51 -0500
+
 whisper-backup (0.1.0-1) unstable; urgency=medium
 
   * Updated pycronscript to 0.2.1

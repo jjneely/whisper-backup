@@ -8,7 +8,7 @@ Homepage: https://github.com/jjneely/whisper-backup
 
 Package: whisper-backup
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-swiftclient, python-boto
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-swiftclient (>= 3.0.0), python-boto
 Description: Backup Graphite Whisper files to reliable storage.
  Backup Graphite's storage directory full of Whisper files to reliable
  storage including AWS S3 and OpenStack Swift.  Multi-process and fast

@@ -107,7 +107,7 @@ For AWS S3 support:
 
 For OpenStack Swift support:
 
-* python-swiftclient
+* python-swiftclient >= 3.0.0 (timeout support)
 
 Assumptions
 -----------

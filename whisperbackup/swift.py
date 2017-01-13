@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#   Copyright 2014 42 Lines, Inc.
+#   Copyright 2017 42 Lines, Inc.
 #   Original Author: Jack Neely <jjneely@42lines.net>
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +40,8 @@ class Swift(object):
         try:
             self.conn = Connection(authurl=os.environ["ST_AUTH"],
                                user=os.environ["ST_USER"],
-                               key=os.environ["ST_KEY"])
+                               key=os.environ["ST_KEY"],
+                               timeout=60)
         except KeyError:
             logger.warning("Missing environment variables for Swift authentication")
             logger.warning("Bailing...")
