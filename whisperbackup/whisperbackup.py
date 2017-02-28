@@ -39,7 +39,7 @@ import __main__
 
 logger = logging.getLogger(__main__.__name__)
 
-def listMetrics(storage_dir, glob):
+def listMetrics(storage_dir, storage_path, glob):
     storage_dir = storage_dir.rstrip(os.sep)
 
     for root, dirnames, filenames in os.walk(storage_dir):
@@ -51,7 +51,7 @@ def listMetrics(storage_dir, glob):
                 m_name = m_name.replace('/', '.')
                 if glob == "*" or fnmatch(m_name, glob):
                     # We use globbing on the metric name, not the path
-                    yield m_name, os.path.join(root, filename)
+                    yield storage_path + m_name, os.path.join(root, filename)
 
 
 def toPath(prefix, metric):
@@ -113,7 +113,7 @@ def backup(script):
 
     logger.info("Scanning filesystem...")
     # Unroll the generator so we can calculate length
-    jobs = [ (k, p) for k, p in listMetrics(script.options.prefix, script.options.metrics) ]
+    jobs = [ (k, p) for k, p in listMetrics(script.options.prefix, script.options.storage_path, script.options.metrics) ]
     data['length'] = len(jobs)
 
     workers = Pool(processes=script.options.processes,
@@ -155,8 +155,8 @@ def purge(script, localMetrics):
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
                     # than just leaking the WSP storage space.
-                    script.store.delete("%s/%s.wsp.gz" % (k, ts))
-                    script.store.delete("%s/%s.sha1" % (k, ts))
+                    script.store.delete("%s%s/%s.wsp.gz" % (script.options.storage_path, k, ts))
+                    script.store.delete("%s%s/%s.sha1" % (script.options.storage_path, k, ts))
                 except Exception as e:
                     # On an error here we want to leave files alone
                     logger.warning("Exception during delete: %s" % str(e))
@@ -312,7 +312,8 @@ def search(script):
     logger.info("Searching remote file store...")
     metrics = {}
 
-    for i in script.store.list():
+    for i in script.store.list(prefix=script.options.storage_path):
+        i = i[len(script.options.storage_path):]
         # The SHA1 is my canary/flag, we look for it
         if i.endswith(".sha1"):
             # The metric name is everything before the first /
@@ -333,8 +334,8 @@ def restore(script):
         d = findBackup(script, objs, script.options.date)
         logger.info("Restoring %s from timestamp %s" % (i, d))
 
-        blobgz  = script.store.get("%s/%s.wsp.gz" % (i, d))
-        blobSHA = script.store.get("%s/%s.sha1" % (i, d))
+        blobgz  = script.store.get("%s%s/%s.wsp.gz" % (script.options.storage_path,i, d))
+        blobSHA = script.store.get("%s%s/%s.sha1" % (script.options.storage_path,i, d))
 
         if blobgz is None:
             logger.warning("Missing file in object store: %s/%s.wsp.gz" % (i, d))
@@ -412,6 +413,9 @@ def main():
     options.append(make_option("-c", "--date", type="string",
         default=utc(),
         help="String in ISO-8601 date format. The last backup before this date will be used during the restore.  Default is now or %s." % utc()))
+    options.append(make_option("--storage-path", type="string",
+        default="",
+        help="Path in the bucket to store the backup, default %default"))
 
     script = CronScript(usage=usage, options=options)
 
@@ -438,7 +442,7 @@ def main():
         with script:
             # Use splay and lockfile settings
             script.store = storageBackend(script)
-            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.metrics)])
+            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.storage_path, script.options.metrics)])
     elif mode == "list":
         # Splay and lockfile settings make no sense here
         script.store = storageBackend(script)
