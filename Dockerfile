@@ -8,7 +8,7 @@ ENV GRAPHITE_VERSION 0.9.15
 
 RUN apt-get update && \
     apt-get -y install python2.7 python-pip wget unzip && \
-    wget -O /opt/whisper-backup-"$VERSION".zip https://github.com/Banno/whisper-backup/releases/download/"$VERSION"/whisper-backup-"$VERSION".zip && \
+    wget -O /opt/whisper-backup-"$VERSION".zip https://github.com/jjneely/whisper-backup/releases/download/"$VERSION"/whisper-backup-"$VERSION".zip && \
     cd /opt/ && \
     unzip -d whisper-backup whisper-backup-"$VERSION".zip && \
     rm whisper-backup-"$VERSION".zip && \
