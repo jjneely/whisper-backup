@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#   Copyright 2014 42 Lines, Inc.
+#   Copyright 2014-2017 42 Lines, Inc.
 #   Original Author: Jack Neely <jjneely@42lines.net>
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -219,8 +219,11 @@ def backupWorker(k, p):
     # Grab our timestamp and assemble final upstream key location
     remote = "%s/%s" % (k, timestamp)
     logger.debug("Uploading payload...")
-    script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
-    script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
+    try:
+        script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
+        script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
+    except Exception as e:
+        logger.warning("Exception during upload: %s" % str(e))
 
     # Free Memory
     blobgz.close()
