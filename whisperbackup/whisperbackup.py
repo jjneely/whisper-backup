@@ -166,7 +166,7 @@ def purge(script, localMetrics):
                                 % (script.options.storage_path, k, ts)) ]
                         d.extend([ i for i in script.store.list("%s%s/%s.sha1"
                                 % (script.options.storage_path, k, ts)) ])
-                        log.debug("Existing backups would have been removed: %s"
+                        logger.debug("Existing backups would have been removed: %s"
                             % ", ".join(d))
 
                 except Exception as e:
@@ -256,7 +256,7 @@ def backupWorker(k, p):
                 # Do a list, we want to log if there's a 404
                 d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
                 d.extend([ i for i in script.store.list("%s.sha1" % i) ])
-                log.debug("Existing backups would have been removed: %s"
+                logger.debug("Existing backups would have been removed: %s"
                         % ", ".join(d))
         except Exception as e:
             # On an error here we want to leave files alone
