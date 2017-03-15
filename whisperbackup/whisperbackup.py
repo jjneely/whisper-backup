@@ -118,13 +118,13 @@ def backup(script):
 
     workers = Pool(processes=script.options.processes,
                    initializer=init, initargs=[script])
-    logger.info("Starting backup...")
+    logger.info("Starting backup of %d whisper files" % data['length'])
     for k, p in jobs:
         workers.apply_async(backupWorker, [k, p], callback=cb)
 
     workers.close()
     workers.join()
-    logger.info("Backup complete.")
+    logger.info("Backup complete")
 
     purge(script, [ k for k, p in jobs ])
 
@@ -134,7 +134,7 @@ def purge(script, localMetrics):
        are more than purge days old as set in the command line options."""
 
     if script.options.purge < 0:
-        # purging is disabled
+        log.debug("Purge is disabled, skipping")
         return
 
     logger.info("Beginning purge operation.")
@@ -155,10 +155,23 @@ def purge(script, localMetrics):
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
                     # than just leaking the WSP storage space.
-                    script.store.delete("%s%s/%s.wsp.gz" % (script.options.storage_path, k, ts))
-                    script.store.delete("%s%s/%s.sha1" % (script.options.storage_path, k, ts))
+                    if not script.options.noop:
+                        script.store.delete("%s%s/%s.wsp.gz"
+                                % (script.options.storage_path, k, ts))
+                        script.store.delete("%s%s/%s.sha1"
+                                % (script.options.storage_path, k, ts))
+                    else:
+                        # Do a list to check for 404s
+                        d = [ i for i in script.store.list("%s%s/%s.wsp.gz"
+                                % (script.options.storage_path, k, ts)) ]
+                        d.extend([ i for i in script.store.list("%s%s/%s.sha1"
+                                % (script.options.storage_path, k, ts)) ])
+                        log.debug("Existing backups would have been removed: %s"
+                            % ", ".join(d))
+
                 except Exception as e:
-                    # On an error here we want to leave files alone
+                    # On an error here we want to leave files alone.
+                    # This includes file not found (404) errors
                     logger.warning("Exception during delete: %s" % str(e))
                 else:
                     c += 1
@@ -198,7 +211,8 @@ def backupWorker(k, p):
     knownBackups.sort()
     if len(knownBackups) > 0:
         i = knownBackups[-1] # The last known backup
-        logger.debug("Examining %s from data store..." % i)
+        logger.debug("Examining %s from data store of %d backups"
+                % (i, len(knownBackups)))
         if script.store.get(i) == blobSHA:
             logger.info("Metric DB %s is unchanged from last backup, " \
                         "skipping." % k)
@@ -207,21 +221,20 @@ def backupWorker(k, p):
 
     # We're going to backup this file, compress it as a normal .gz
     # file so that it can be restored manually if needed
-    if not script.options.noop:
-        logger.debug("Compressing data...")
-        blobgz = StringIO()
-        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-        fd.write(blob)
-        fd.close()
-    else:
-        logger.info("Skipping compression for noop run")
+    logger.debug("Compressing data...")
+    blobgz = StringIO()
+    fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+    fd.write(blob)
+    fd.close()
 
     # Grab our timestamp and assemble final upstream key location
     remote = "%s/%s" % (k, timestamp)
-    logger.debug("Uploading payload...")
+    logger.debug("Uploading payload as: %s/%s.wsp.gz" % (k, timestamp))
+    logger.debug("Uploading SHA1 as   : %s/%s.sha1" % (k, timestamp))
     try:
-        script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
-        script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
+        if not script.options.noop:
+            script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
+            script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
     except Exception as e:
         logger.warning("Exception during upload: %s" % str(e))
 
@@ -231,12 +244,20 @@ def backupWorker(k, p):
 
     # Handle our retention polity, we keep at most X backups
     while len(knownBackups) + 1 > script.options.retention:
-         # The oldest (and not current) backup
+        # The oldest (and not current) backup
         i = knownBackups[0].replace(".sha1", "")
         logger.info("Removing old backup: %s" % i+".wsp.gz")
+        logger.debug("Removing old SHA1: %s" % i+".sha1")
         try:
-            script.store.delete("%s.wsp.gz" % i)
-            script.store.delete("%s.sha1" % i)
+            if not script.options.noop:
+                script.store.delete("%s.wsp.gz" % i)
+                script.store.delete("%s.sha1" % i)
+            else:
+                # Do a list, we want to log if there's a 404
+                d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
+                d.extend([ i for i in script.store.list("%s.sha1" % i) ])
+                log.debug("Existing backups would have been removed: %s"
+                        % ", ".join(d))
         except Exception as e:
             # On an error here we want to leave files alone
             logger.warning("Exception during delete: %s" % str(e))
@@ -425,7 +446,7 @@ def main():
     if len(script.args) == 0:
         logger.info("whisper-backup.py - A Python script for backing up whisper " \
                     "database trees as used with Graphite")
-        logger.info("Copyright 2014 42 Lines, Inc.")
+        logger.info("Copyright (c) 2014 - 2017 42 Lines, Inc.")
         logger.info("Original Author: Jack Neely <jjneely@42lines.net>")
         logger.info("See the README for help or use the --help option.")
         sys.exit(1)
