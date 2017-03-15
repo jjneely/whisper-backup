@@ -162,12 +162,12 @@ def purge(script, localMetrics):
                                 % (script.options.storage_path, k, ts))
                     else:
                         # Do a list to check for 404s
-                        d = [ i for i in script.store.list("%s%s/%s.wsp.gz"
-                                % (script.options.storage_path, k, ts)) ]
-                        d.extend([ i for i in script.store.list("%s%s/%s.sha1"
-                                % (script.options.storage_path, k, ts)) ])
-                        logger.debug("Existing backups would have been removed: %s"
-                            % ", ".join(d))
+                        d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
+                        if len(d) == 0:
+                            logger.warn("Missing file in store: %s.wsp.gz" % i)
+                        d = [ i for i in script.store.list("%s.sha1" % i) ]
+                        if len(d) == 0:
+                            logger.warn("Missing file in store: %s.sha1" % i)
 
                 except Exception as e:
                     # On an error here we want to leave files alone.
@@ -255,9 +255,11 @@ def backupWorker(k, p):
             else:
                 # Do a list, we want to log if there's a 404
                 d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
-                d.extend([ i for i in script.store.list("%s.sha1" % i) ])
-                logger.debug("Existing backups would have been removed: %s"
-                        % ", ".join(d))
+                if len(d) == 0:
+                    logger.warn("Missing file in store: %s.wsp.gz" % i)
+                d = [ i for i in script.store.list("%s.sha1" % i) ]
+                if len(d) == 0:
+                    logger.warn("Missing file in store: %s.sha1" % i)
         except Exception as e:
             # On an error here we want to leave files alone
             logger.warning("Exception during delete: %s" % str(e))
