@@ -155,6 +155,7 @@ def purge(script, localMetrics):
                     # Delete the WSP file first, if the delete of the SHA1
                     # causes the error, the next run will get it, rather
                     # than just leaking the WSP storage space.
+                    t = time.time()
                     if not script.options.noop:
                         script.store.delete("%s%s/%s.wsp.gz"
                                 % (script.options.storage_path, k, ts))
@@ -170,6 +171,7 @@ def purge(script, localMetrics):
                         if len(d) == 0:
                             logger.warn("Purge: Missing file in store: %s.sha1" % t)
 
+                    log.debug("Purge of %s @ %s took %d seconds" % (k, ts, time.time()-t))
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -236,8 +238,11 @@ def backupWorker(k, p):
     logger.debug("Uploading SHA1 as   : %s/%s.sha1" % (k, timestamp))
     try:
         if not script.options.noop:
+            t = time.time()
             script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
             script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
+            logger.debug("Upload of %s @ %s took %d seconds"
+                    % (k, timestamp, time.time()-t))
     except Exception as e:
         logger.warning("Exception during upload: %s" % str(e))
 
@@ -252,6 +257,7 @@ def backupWorker(k, p):
         logger.info("Removing old backup: %s" % i+".wsp.gz")
         logger.debug("Removing old SHA1: %s" % i+".sha1")
         try:
+            t = time.time()
             if not script.options.noop:
                 script.store.delete("%s.wsp.gz" % i)
                 script.store.delete("%s.sha1" % i)
@@ -263,6 +269,9 @@ def backupWorker(k, p):
                 d = [ i for i in script.store.list("%s.sha1" % i) ]
                 if len(d) == 0:
                     logger.warn("Missing file in store: %s.sha1" % i)
+
+            logger.debug("Retention removal of %s took %d seconds"
+                    % (i, time.time()-t))
         except Exception as e:
             # On an error here we want to leave files alone
             logger.warning("Exception during delete: %s" % str(e))
