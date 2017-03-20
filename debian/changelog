@@ -1,3 +1,10 @@
+whisper-backup (0.1.2-1) unstable; urgency=medium
+
+  * Attempt a 0.1.2 release with some new features that have been
+    contributed and some logging crazy.
+
+ -- Jack Neely <jjneely@42lines.net>  Mon, 20 Mar 2017 16:46:24 -0400
+
 whisper-backup (0.1.1-1) unstable; urgency=medium
 
   * Build requiring python-swiftclient >= 3.0.0 which includes support
