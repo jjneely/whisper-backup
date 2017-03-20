@@ -162,13 +162,16 @@ def purge(script, localMetrics):
                                 % (script.options.storage_path, k, ts))
                     else:
                         # Do a list to check for 404s
-                        d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
+                        t = "%s%s/%s" % (k, ts)
+                        d = [ i for i in script.store.list("%s.wsp.gz" % t) ]
                         if len(d) == 0:
-                            logger.warn("Missing file in store: %s.wsp.gz" % i)
-                        d = [ i for i in script.store.list("%s.sha1" % i) ]
+                            logger.warn("Purge: Missing file in store: %s.wsp.gz" % p)
+                        d = [ i for i in script.store.list("%s.sha1" % t) ]
                         if len(d) == 0:
-                            logger.warn("Missing file in store: %s.sha1" % i)
+                            logger.warn("Purge: Missing file in store: %s.sha1" % t)
 
+                except KeyboardInterrupt:
+                    raise
                 except Exception as e:
                     # On an error here we want to leave files alone.
                     # This includes file not found (404) errors
@@ -196,8 +199,8 @@ def backupWorker(k, p):
                 % (k, str(e)))
         return
     except Exception as e:
-        logger.error("An Unknown exception occurred, skipping metric")
-        logger.error(str(e))
+        logger.error("An Unknown exception occurred, skipping metric: %s"
+                % str(e))
         return
 
     # SHA1 hash...have we seen this metric DB file before?
@@ -221,14 +224,14 @@ def backupWorker(k, p):
 
     # We're going to backup this file, compress it as a normal .gz
     # file so that it can be restored manually if needed
-    logger.debug("Compressing data...")
-    blobgz = StringIO()
-    fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-    fd.write(blob)
-    fd.close()
+    if not script.options.noop:
+        logger.debug("Compressing data...")
+        blobgz = StringIO()
+        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+        fd.write(blob)
+        fd.close()
 
     # Grab our timestamp and assemble final upstream key location
-    remote = "%s/%s" % (k, timestamp)
     logger.debug("Uploading payload as: %s/%s.wsp.gz" % (k, timestamp))
     logger.debug("Uploading SHA1 as   : %s/%s.sha1" % (k, timestamp))
     try:
