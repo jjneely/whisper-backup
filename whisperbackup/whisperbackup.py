@@ -173,7 +173,7 @@ def purge(script, localMetrics):
                         if len(d) == 0:
                             logger.warn("Purge: Missing file in store: %s.sha1" % t)
 
-                    logger.info("Purge of %s @ %s took %d seconds" % (k, ts, time.time()-t))
+                    logger.debug("Purge of %s @ %s took %d seconds" % (k, ts, time.time()-t))
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -272,7 +272,7 @@ def backupWorker(k, p):
                 if len(d) == 0:
                     logger.warn("Missing file in store: %s.sha1" % i)
 
-            logger.info("Retention removal of %s took %d seconds"
+            logger.debug("Retention removal of %s took %d seconds"
                     % (i, time.time()-t))
         except Exception as e:
             # On an error here we want to leave files alone
