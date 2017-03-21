@@ -10,7 +10,7 @@ Example
 
 ```
 $ whisper-backup --logfile /opt/graphite/storage/log/whisper-backup/whisper-backup.log \
-        --bucket fitbit.graphite.$(hostname -s) \
+        --bucket $(hostname -s) \
         --retention 5 \
         --quiet \
         backup swift
