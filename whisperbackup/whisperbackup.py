@@ -126,12 +126,14 @@ def backup(script):
     workers.join()
     logger.info("Backup complete")
 
-    purge(script, [ k for k, p in jobs ])
+    purge(script, { k: True for k, p in jobs })
 
 
 def purge(script, localMetrics):
     """Purge backups in our store that are non-existant on local disk and
        are more than purge days old as set in the command line options."""
+
+    # localMetrics must be a dict so we can do fast lookups
 
     if script.options.purge < 0:
         log.debug("Purge is disabled, skipping")
@@ -171,7 +173,7 @@ def purge(script, localMetrics):
                         if len(d) == 0:
                             logger.warn("Purge: Missing file in store: %s.sha1" % t)
 
-                    log.info("Purge of %s @ %s took %d seconds" % (k, ts, time.time()-t))
+                    logger.info("Purge of %s @ %s took %d seconds" % (k, ts, time.time()-t))
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -480,7 +482,9 @@ def main():
         with script:
             # Use splay and lockfile settings
             script.store = storageBackend(script)
-            purge(script, [k for k, p in listMetrics(script.options.prefix, script.options.storage_path, script.options.metrics)])
+            localMetrics = listMetrics(script.options.prefix,
+                    script.options.storage_path, script.options.metrics)
+            purge(script, { k: True for k, p in localMetrics })
     elif mode == "list":
         # Splay and lockfile settings make no sense here
         script.store = storageBackend(script)
