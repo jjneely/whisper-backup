@@ -32,6 +32,11 @@ from optparse import make_option
 from fnmatch import fnmatch
 from StringIO import StringIO
 
+try:
+    import snappy
+except ImportError:
+    snappy = None
+
 from fill import fill_archives
 from pycronscript import CronScript
 
@@ -159,16 +164,19 @@ def purge(script, localMetrics):
                     # than just leaking the WSP storage space.
                     t = time.time()
                     if not script.options.noop:
-                        script.store.delete("%s%s/%s.wsp.gz"
-                                % (script.options.storage_path, k, ts))
+                        script.store.delete("%s%s/%s.wsp.%s"
+                                % (script.options.storage_path, k, ts,
+                                   script.options.algorithm))
                         script.store.delete("%s%s/%s.sha1"
                                 % (script.options.storage_path, k, ts))
                     else:
                         # Do a list to check for 404s
                         t = "%s%s/%s" % (k, ts)
-                        d = [ i for i in script.store.list("%s.wsp.gz" % t) ]
+                        d = [ i for i in script.store.list("%s.wsp.%s" \
+                                % (t, script.options.algorithm)) ]
                         if len(d) == 0:
-                            logger.warn("Purge: Missing file in store: %s.wsp.gz" % p)
+                            logger.warn("Purge: Missing file in store: %s.wsp.%s" \
+                                    % (p, script.options.algorithm))
                         d = [ i for i in script.store.list("%s.sha1" % t) ]
                         if len(d) == 0:
                             logger.warn("Purge: Missing file in store: %s.sha1" % t)
@@ -231,17 +239,28 @@ def backupWorker(k, p):
     if not script.options.noop:
         logger.debug("Compressing data...")
         blobgz = StringIO()
-        fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
-        fd.write(blob)
-        fd.close()
+        if script.options.algorithm == "gz":
+            fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
+            fd.write(blob)
+            fd.close()
+        elif script.options.algorithm == "snappy":
+            try:
+                compressor = snappy.StreamCompressor()
+                blobgz.write(compressor.compress(blob))
+            except Exception as e:
+                logger.error("Exception: %s" % str(e))
+        else:
+            raise StandardError("Unknown compression format requested")
 
     # Grab our timestamp and assemble final upstream key location
-    logger.debug("Uploading payload as: %s/%s.wsp.gz" % (k, timestamp))
+    logger.debug("Uploading payload as: %s/%s.wsp.%s" \
+            % (k, timestamp, script.options.algorithm))
     logger.debug("Uploading SHA1 as   : %s/%s.sha1" % (k, timestamp))
     try:
         if not script.options.noop:
             t = time.time()
-            script.store.put("%s/%s.wsp.gz" % (k, timestamp), blobgz.getvalue())
+            script.store.put("%s/%s.wsp.%s" \
+                    % (k, timestamp, script.options.algorithm), blobgz.getvalue())
             script.store.put("%s/%s.sha1" % (k, timestamp), blobSHA)
             logger.debug("Upload of %s @ %s took %d seconds"
                     % (k, timestamp, time.time()-t))
@@ -252,22 +271,24 @@ def backupWorker(k, p):
     blobgz.close()
     del blob
 
-    # Handle our retention polity, we keep at most X backups
+    # Handle our retention policy, we keep at most X backups
     while len(knownBackups) + 1 > script.options.retention:
         # The oldest (and not current) backup
         i = knownBackups[0].replace(".sha1", "")
-        logger.info("Removing old backup: %s" % i+".wsp.gz")
-        logger.debug("Removing old SHA1: %s" % i+".sha1")
+        logger.info("Removing old backup: %s.wsp.%s" % (i, script.options.algorithm))
+        logger.debug("Removing old SHA1: %s.sha1" % i)
         try:
             t = time.time()
             if not script.options.noop:
-                script.store.delete("%s.wsp.gz" % i)
+                script.store.delete("%s.wsp.%s" % (i, script.options.algorithm))
                 script.store.delete("%s.sha1" % i)
             else:
                 # Do a list, we want to log if there's a 404
-                d = [ i for i in script.store.list("%s.wsp.gz" % i) ]
+                d = [ i for i in script.store.list("%s.wsp.%s" \
+                        % (i, script.options.algorithm)) ]
                 if len(d) == 0:
-                    logger.warn("Missing file in store: %s.wsp.gz" % i)
+                    logger.warn("Missing file in store: %s.wsp.%s" \
+                            % (i, script.options.algorithm))
                 d = [ i for i in script.store.list("%s.sha1" % i) ]
                 if len(d) == 0:
                     logger.warn("Missing file in store: %s.sha1" % i)
@@ -374,19 +395,32 @@ def restore(script):
         d = findBackup(script, objs, script.options.date)
         logger.info("Restoring %s from timestamp %s" % (i, d))
 
-        blobgz  = script.store.get("%s%s/%s.wsp.gz" % (script.options.storage_path,i, d))
-        blobSHA = script.store.get("%s%s/%s.sha1" % (script.options.storage_path,i, d))
+        blobgz  = script.store.get("%s%s/%s.wsp.%s" \
+                % (script.options.storage_path, i, d, script.options.algorithm))
+        blobSHA = script.store.get("%s%s/%s.sha1" \
+                % (script.options.storage_path, i, d))
 
         if blobgz is None:
-            logger.warning("Missing file in object store: %s/%s.wsp.gz" % (i, d))
-            logger.warning("Skipping...")
+            logger.warning("Skipping missing file in object store: %s/%s.wsp.%s" \
+                    % (i, d, script.options.algorithm))
             continue
 
         # Decompress
         blobgz = StringIO(blobgz)
-        fd = gzip.GzipFile(fileobj=blobgz, mode="rb")
-        blob = fd.read()
-        fd.close()
+        blob = None
+        if script.options.algorithm == "gz":
+            fd = gzip.GzipFile(fileobj=blobgz, mode="rb")
+            blob = fd.read()
+            fd.close()
+        elif script.options.algorithm == "snappy":
+            compressor = snappy.StreamDecompressor()
+            blob = compressor.decompress(blobgz.getvalue())
+            try:
+                compressor.flush()
+            except UncompressError as e:
+                logger.error("Corrupt file in store: %s%s/%s.wsp.snappy  Error %s" \
+                        % (script.options.storage_path, i, d, str(e)))
+                continue
 
         # Verify
         if blobSHA is None:
@@ -410,7 +444,7 @@ def listbackups(script):
     # This list is sorted, we will use that to our advantage
     key = None
     for i in script.store.list():
-        if i.endswith(".wsp.gz"):
+        if i.endswith(".wsp.%s" % script.options.algorithm):
             if key is None or key != i:
                 key = i
                 print key[:-33]
@@ -453,6 +487,13 @@ def main():
     options.append(make_option("-c", "--date", type="string",
         default=utc(),
         help="String in ISO-8601 date format. The last backup before this date will be used during the restore.  Default is now or %s." % utc()))
+    choices = ["gz"]
+    if snappy is not None:
+        choices.append("snappy")
+    options.append(make_option("-a", "--algorithm", type="choice",
+        default="gz", choices=choices, dest="algorithm",
+        help="Compression format to use based on installed Python modules.  " \
+             "Choices: %s" % ", ".join(choices)))
     options.append(make_option("--storage-path", type="string",
         default="",
         help="Path in the bucket to store the backup, default %default"))
