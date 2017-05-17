@@ -243,12 +243,9 @@ def backupWorker(k, p):
             fd = gzip.GzipFile(fileobj=blobgz, mode="wb")
             fd.write(blob)
             fd.close()
-        elif script.options.algorithm == "snappy":
-            try:
-                compressor = snappy.StreamCompressor()
-                blobgz.write(compressor.compress(blob))
-            except Exception as e:
-                logger.error("Exception: %s" % str(e))
+        elif script.options.algorithm == "sz":
+            compressor = snappy.StreamCompressor()
+            blobgz.write(compressor.compress(blob))
         else:
             raise StandardError("Unknown compression format requested")
 
@@ -412,13 +409,13 @@ def restore(script):
             fd = gzip.GzipFile(fileobj=blobgz, mode="rb")
             blob = fd.read()
             fd.close()
-        elif script.options.algorithm == "snappy":
+        elif script.options.algorithm == "sz":
             compressor = snappy.StreamDecompressor()
             blob = compressor.decompress(blobgz.getvalue())
             try:
                 compressor.flush()
             except UncompressError as e:
-                logger.error("Corrupt file in store: %s%s/%s.wsp.snappy  Error %s" \
+                logger.error("Corrupt file in store: %s%s/%s.wsp.sz  Error %s" \
                         % (script.options.storage_path, i, d, str(e)))
                 continue
 
@@ -489,7 +486,7 @@ def main():
         help="String in ISO-8601 date format. The last backup before this date will be used during the restore.  Default is now or %s." % utc()))
     choices = ["gz"]
     if snappy is not None:
-        choices.append("snappy")
+        choices.append("sz")
     options.append(make_option("-a", "--algorithm", type="choice",
         default="gz", choices=choices, dest="algorithm",
         help="Compression format to use based on installed Python modules.  " \
