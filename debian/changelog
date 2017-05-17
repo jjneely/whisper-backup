@@ -1,3 +1,9 @@
+whisper-backup (0.2.0-1) unstable; urgency=medium
+
+  * Support Google Snappy compression for faster backup cycles
+
+ -- Jack Neely <jjneely@42lines.net>  Wed, 17 May 2017 16:29:37 -0400
+
 whisper-backup (0.1.3-1) unstable; urgency=medium
 
   * Fix purges taking for ever to complete.
