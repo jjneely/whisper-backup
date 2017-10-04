@@ -471,7 +471,7 @@ def main():
         help="Number of unique backups to retain for each whisper file, default %default"))
     options.append(make_option("-x", "--purge", type="int",
         default=45,
-        help="Days to keep unknown Whisper file backups, 0 disables, default %default"))
+        help="Days to keep unknown Whisper file backups, -1 disables, default %default"))
     options.append(make_option("-n", "--noop", action="store_true",
         default=False,
         help="Do not modify the object store, default %default"))
