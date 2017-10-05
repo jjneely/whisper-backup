@@ -70,7 +70,7 @@ Options:
                         Number of unique backups to retain for each whisper
                         file, default 5
   -x PURGE, --purge=PURGE
-                        Days to keep unknown Whisper file backups, 0 disables,
+                        Days to keep unknown Whisper file backups, -1 disables,
                         default 45
   -n, --noop            Do not modify the object store, default False
   -b BUCKET, --bucket=BUCKET
@@ -109,7 +109,8 @@ Options:
 Notes:
 * Purge removes Whisper backups in the datastore for Whisper files not
   presently on the server.  Such as deleted or moved Whisper files.  A setting
-  of 0 will immediately purge backups for metrics not on the local disk.
+  of 0 will immediately purge backups for metrics not on the local disk,
+  -1 will disable purge.
 
 Compression Algorithms and Notes
 --------------------------------
