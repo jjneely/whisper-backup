@@ -83,7 +83,7 @@ def storageBackend(script):
             region = script.args[2]
         else:
             region = "us-east-1"
-        return s3.S3(script.options.bucket, region, script.options.noop)
+        return s3.S3(script.options.bucket, region, script.options.endpoint, script.options.noop)
     if script.args[1].lower() == "swift":
         import swift
         return swift.Swift(script.options.bucket, script.options.noop)
@@ -463,6 +463,9 @@ def main():
     options.append(make_option("-p", "--prefix", type="string",
         default="/opt/graphite/storage/whisper",
         help="Root of where the whisper files live or will be restored to, default %default"))
+    options.append(make_option("-e", "--endpoint", type="string",
+        default="False",
+        help="Optional Endpoint url for cloud backups. If you're using AWS S3 ignore this argument and use region, default %default"))
     options.append(make_option("-f", "--processes", type="int",
         default=4,
         help="Number of worker processes to spawn, default %default"))
