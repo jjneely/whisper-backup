@@ -20,22 +20,37 @@ import __main__
 import logging
 
 from boto.s3.key import Key
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 
 logger = logging.getLogger(__main__.__name__)
 
 class S3(object):
 
-    def __init__(self, bucket, region="us-east-1", noop=False):
+    def __init__(self, bucket, region="us-east-1", endpoint=None, noop=False):
         """Setup the S3 storage backend with the bucket we will use and
            optional region."""
-        self.conn = boto.s3.connect_to_region(region)
+        self.endpoint = endpoint
+        if self.endpoint is not None:
+            self.conn = S3Connection(
+                is_secure=False,
+                profile_name="default",
+                calling_format=OrdinaryCallingFormat(),
+                host=self.endpoint,
+                port=80
+            )
+        else:
+            self.conn = boto.s3.connect_to_region(region)
+
         self.bucket = bucket
         self.noop = noop
 
         b = self.conn.lookup(self.bucket)
         if not noop and b is None:
             # Create the bucket if it doesn't exist
-            self.conn.create_bucket(self.bucket, location=region)
+            if self.endpoint is not None:
+                self.conn.create_bucket(self.bucket)
+            else:
+                self.conn.create_bucket(self.bucket, location=region)
 
         self.__b = self.conn.get_bucket(self.bucket)
 
