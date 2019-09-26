@@ -87,6 +87,13 @@ def storageBackend(script):
     if script.args[1].lower() == "swift":
         import swift
         return swift.Swift(script.options.bucket, script.options.noop)
+    if script.args[1].lower() == "gcs":
+        import gcs
+        if len(script.args) > 2:
+            region = script.args[2]
+        else:
+            region = "us"
+        return gcs.GCS(script.options.bucket, region)
 
     logger.error("Invalid storage backend, must be 'swift', 's3', 'noop', or 'disk'")
     sys.exit(1)
@@ -500,7 +507,7 @@ def main():
     if len(script.args) == 0:
         logger.info("whisper-backup.py - A Python script for backing up whisper " \
                     "database trees as used with Graphite")
-        logger.info("Copyright (c) 2014 - 2017 42 Lines, Inc.")
+        logger.info("Copyright (c) 2014 - 2019 42 Lines, Inc.")
         logger.info("Original Author: Jack Neely <jjneely@42lines.net>")
         logger.info("See the README for help or use the --help option.")
         sys.exit(1)

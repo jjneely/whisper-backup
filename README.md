@@ -2,8 +2,8 @@ whisper-backup
 ===============
 
 I needed a handy way to backup my Graphite cluster to reliable storage such as
-Amazon S3 or OpenStack Swift.  Also, the ability to restore that data in
-a sane away.
+Amazon S3, Google Cloud Storage, or OpenStack Swift.  Also, the ability to
+restore that data in a sane away.  Hence, I wrote `whisper-backup`.
 
 Examples
 --------
@@ -28,7 +28,8 @@ $ whisper-backup --logfile /opt/graphite/storage/log/whisper-backup/whisper-back
 Goals
 -----
 
-* Compress WSP data.  Space is cash and they compress well.
+* Compress WSP data.  Space is cash and they compress well.  Gzip and Snappy
+  compression is supported.
 * Support storing multiple backups of the same WSP DB over a retention
   period.
 * Be able to restore and backup all or part of an existing tree of metrics.
@@ -158,6 +159,7 @@ Optional Python packages:
 * boto: For Amazon AWS S3 support as remote store
 * python-swiftclient >= 3.0.0 (timeout support): For OpenStack Swift support
   as remote store
+* google-cloud-storage: From PyPI for Google Cloud Storage remote store
 
 Assumptions
 -----------
