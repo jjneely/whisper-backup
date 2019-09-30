@@ -69,7 +69,7 @@ def toPath(prefix, metric):
 
 def storageBackend(script):
     if len(script.args) <= 1:
-        logger.error("Storage backend must be specified, either 'swift', 's3', 'noop', or 'disk'")
+        logger.error("Storage backend must be specified, either: disk, gcs, noop, s3, or swift")
         sys.exit(1)
     if script.args[1].lower() == "disk":
         import disk
@@ -79,23 +79,30 @@ def storageBackend(script):
         return noop.NoOP(script.options.bucket, script.options.noop)
     if script.args[1].lower() == "s3":
         import s3
-        if len(script.args) > 2:
-            region = script.args[2]
-        else:
-            region = "us-east-1"
-        return s3.S3(script.options.bucket, region, script.options.noop)
+        s3args = {"region": "us-east-1"}
+        for i in script.args[2:]:
+            fields = i.split("=")
+            if len(fields) > 1:
+                gcsargs[fields[0]] = fields[1]
+            else:
+                gcsargs["region"] = fields[0]
+        return s3.S3(script.options.bucket, s3args["region"], script.options.noop)
     if script.args[1].lower() == "swift":
         import swift
         return swift.Swift(script.options.bucket, script.options.noop)
     if script.args[1].lower() == "gcs":
         import gcs
-        if len(script.args) > 2:
-            region = script.args[2]
-        else:
-            region = "us"
-        return gcs.GCS(script.options.bucket, region)
+        gcsargs = {"project": "", "region": "us"}
+        for i in script.args[2:]:
+            fields = i.split("=")
+            if len(fields) > 1:
+                gcsargs[fields[0]] = fields[1]
+            else:
+                gcsargs["region"] = fields[0]
+        return gcs.GCS(script.options.bucket, gcsargs["project"],
+            gcsargs["region"], script.options.noop)
 
-    logger.error("Invalid storage backend, must be 'swift', 's3', 'noop', or 'disk'")
+    logger.error("Invalid storage backend, must be: disk, gcs, noop, s3, or swift")
     sys.exit(1)
 
 
@@ -464,7 +471,7 @@ def listbackups(script):
 
 
 def main():
-    usage = "%prog [options] backup|restore|purge|list disk|swift|s3 [storage args]"
+    usage = "%prog [options] backup|restore|purge|list disk|gcs|noop|s3|swift [storage args]"
     options = []
 
     options.append(make_option("-p", "--prefix", type="string",

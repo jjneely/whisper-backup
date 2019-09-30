@@ -35,10 +35,10 @@ Goals
 * Be able to restore and backup all or part of an existing tree of metrics.
 * Don't waste space on duplicate WSP files.
 * Verify restored data.
-* Allow for manual restores if needed, we simply store Gzip versions of the
-  WSP files in our storage backend.
+* Allow for manual restores if needed, we simply store Gzip/Snappy versions of
+  the WSP files in our storage backend.
 * Support multiple storage backends.
-* Use flock() (the same locking method that Whisper uses) to lock each DB
+* Use `flock()` (the same locking method that Whisper uses) to lock each DB
   file before uploading it.  This ensures we have a copy that wasn't in the
   middle of a file update procedure.  You have your carbon-cache daemons
   set to use locking, right?
@@ -58,8 +58,7 @@ issues.  So if you have multiple servers you should set each machine to backup
 to its own bucket/container.
 
 ```
-$ whisper-backup --help
-Usage: whisper-backup [options] backup|restore|purge|list disk|swift|s3 [storage args]
+Usage: whisperbackup.py [options] backup|restore|purge|list disk|gcs|noop|s3|swift [storage args]
 
 Options:
   -p PREFIX, --prefix=PREFIX
@@ -71,8 +70,8 @@ Options:
                         Number of unique backups to retain for each whisper
                         file, default 5
   -x PURGE, --purge=PURGE
-                        Days to keep unknown Whisper file backups, -1 disables,
-                        default 45
+                        Days to keep unknown Whisper file backups, -1
+                        disables, default 45
   -n, --noop            Do not modify the object store, default False
   -b BUCKET, --bucket=BUCKET
                         The AWS S3 bucket name or Swift container to use,
@@ -82,7 +81,7 @@ Options:
                         default *
   -c DATE, --date=DATE  String in ISO-8601 date format. The last backup before
                         this date will be used during the restore.  Default is
-                        now or 2017-05-17T14:14:56+00:00.
+                        now or 2019-09-30T17:52:51+00:00.
   -a ALGORITHM, --algorithm=ALGORITHM
                         Compression format to use based on installed Python
                         modules.  Choices: gz, sz
@@ -91,14 +90,14 @@ Options:
   -d, --debug           Minimum log level of DEBUG
   -q, --quiet           Only WARN and above to stdout
   --nolog               Do not log to LOGFILE
-  --logfile=LOGFILE     File to log to, default /var/log/whisper-backup.log
+  --logfile=LOGFILE     File to log to, default /var/log/whisperbackup.py.log
   --syslog              Log to syslog instead of a file
   --nolock              Do not use a lockfile
-  --lockfile=LOCKFILE   Lock file, default /var/lock/whisper-backup
+  --lockfile=LOCKFILE   Lock file, default /var/lock/whisperbackup.py
   --nostamp             Do not use a success stamp file
   --stampfile=STAMPFILE
-                        Success stamp file, default /var/tmp/whisper-
-                        backup.success
+                        Success stamp file, default
+                        /var/tmp/whisperbackup.py.success
   --locktimeout=LOCKTIMEOUT
                         Lock timeout in seconds, default 90
   --splay=SPLAY         Sleep a random time between 0 and N seconds before
@@ -153,18 +152,53 @@ Required Python packages and the versions of which I've tested with.
 * carbon >= 0.9.12
 * lockfile
 
-Optional Python packages:
+Storage Backends and Requirements
+---------------------------------
 
-* python-snappy: To enable Google Snappy compression
-* boto: For Amazon AWS S3 support as remote store
-* python-swiftclient >= 3.0.0 (timeout support): For OpenStack Swift support
-  as remote store
-* google-cloud-storage: From PyPI for Google Cloud Storage remote store
+### Google Snappy Compression
 
-Assumptions
------------
+Installing the `snappy` Python module will enable support in whisper-backup.
 
-* We assume that each WSP file will fit in memory.
+    $ pip install snappy
+
+Some distributions may package this as `python-snappy`.
+
+### AWS S3 Backend
+
+The `boto` package must be installed.
+
+    $ pip install boto
+
+Make sure your AWS credentials are set so that Boto will find them.  This is
+normally setting the environment variables `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`.
+
+### OpenStack Swift Backend
+
+Make sure the `swiftclient` Python package is installed that is version 3.0.0
+or better.
+
+    $ pip install swiftclient
+
+Set the environment variables `ST_AUTH`, `ST_USER`, and `ST_KEY` for
+authentication to your Swift endpoint.
+
+### Google Cloud Storage Backend
+
+The `google-cloud-storage` Python package must be installed.
+
+    $ pip install google-cloud-storage
+
+This uses the Google's default application credentials system to locate
+credentials to use.  If this is running in GCP the service account that
+the GCE VMs running this code use simply needs the correct access to GCS
+buckets.  Otherwise the `GOOGLE_APPLICATION_CREDENTIALS` environment variable
+should be set to reference the on disk file of GCP credentials.
+
+Contributions
+-------------
+
+PRs are welcome.
 
 To Do
 -----

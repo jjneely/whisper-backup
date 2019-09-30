@@ -25,10 +25,14 @@ logger = logging.getLogger(__main__.__name__)
 # Google Cloud Storage
 class GCS(object):
 
-    def __init__(self, bucket, region="us", noop=False):
+    def __init__(self, bucket, project="", region="us", noop=False):
         """Setup the GCS storage backend with the bucket we will use and
            optional region."""
-        self.client = storage.Client()
+        if project == "":
+            self.client = storage.Client()
+        else:
+            self.client = storage.Client(project)
+
         self.noop = noop
 
         self.bucket = storage.Bucket(self.client, bucket)
@@ -44,12 +48,12 @@ class GCS(object):
 
     def list(self, prefix=""):
         """Return all keys in this bucket."""
-        for i in self.client.list_blobs(self.bucket(prefix=prefix)):
+        for i in self.client.list_blobs(self.bucket, prefix=prefix):
             yield i.name
 
     def get(self, src):
         """Return the contents of src from this bucket as a string."""
-        obj = storage.blob.Blob(src)
+        obj = storage.blob.Blob(src, self.bucket)
         if not obj.exists():
             return None
 
@@ -62,7 +66,7 @@ class GCS(object):
         if self.noop:
             logger.info("No-Op Put: %s" % dst)
         else:
-            obj = storage.blob.Blob(dst)
+            obj = storage.blob.Blob(dst, self.bucket)
             obj.upload_from_string(data, content_type="application/octet-stream")
 
     def delete(self, src):
@@ -71,6 +75,6 @@ class GCS(object):
         if self.noop:
             logger.info("No-Op Delete: %s" % src)
         else:
-            obj = storage.blob.Blob(dst)
+            obj = storage.blob.Blob(dst, self.bucket)
             obj.delete()
 
