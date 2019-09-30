@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2017 42 Lines, Inc.
+# Copyright 2019 42 Lines, Inc.
 # Original Author: Jack Neely <jjneely@42lines.net>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 
 setup_args = {
     "name": "whisper-backup",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "platforms": ["any"],
     "description": "Backup whisper DB files into S3 or Swift",
     "long_description": """\
