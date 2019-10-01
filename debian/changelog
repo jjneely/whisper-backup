@@ -1,3 +1,9 @@
+whisper-backup (0.3.0-1) unstable; urgency=medium
+
+  * Add Google Cloud Storage support 
+
+ -- Jack Neely <jjneely@42lines.net>  Tue, 01 Oct 2019 13:34:08 -0400
+
 whisper-backup (0.2.0-1) unstable; urgency=medium
 
   * Support Google Snappy compression for faster backup cycles
