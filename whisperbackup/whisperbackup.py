@@ -83,9 +83,9 @@ def storageBackend(script):
         for i in script.args[2:]:
             fields = i.split("=")
             if len(fields) > 1:
-                gcsargs[fields[0]] = fields[1]
+                s3args[fields[0]] = fields[1]
             else:
-                gcsargs["region"] = fields[0]
+                s3args["region"] = fields[0]
         return s3.S3(script.options.bucket, s3args["region"], script.options.noop)
     if script.args[1].lower() == "swift":
         import swift
