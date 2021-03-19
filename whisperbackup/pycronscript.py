@@ -147,6 +147,9 @@ class CronScript(object):
         self.logger.debug(self.options)
 
     def __enter__(self):
+        if self.options.storage_path > 0 and not self.options.storage_path.endswith('/'):
+            self.options.storage_path = self.options.storage_path + '/'
+
         if self.options.splay > 0:
             splay = randint(0, self.options.splay)
             self.logger.debug('Sleeping for %d seconds (splay=%d)' %
