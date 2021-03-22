@@ -1,4 +1,6 @@
 *~
 *.pyc
 *.pyo
+build/
+whisper_backup.egg-info/
 test/
